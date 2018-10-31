@@ -1,0 +1,2530 @@
+   1                 		.file	"i2c_comms.c"
+   2                 		.variant xap2+
+   3                 	
+   4                 		.small
+   5                 	
+   6                 		.section	.debug_abbrev,"",@progbits
+   7                 	.Ldebug_abbrev0:
+   8                 		.section	.debug_info,"",@progbits
+   9                 	.Ldebug_info0:
+  10                 		.section	.debug_line,"",@progbits
+  11                 	.Ldebug_line0:
+  12 0000 00 00 00 00 		.text
+  12      00 02 00 00 
+  12      00 00 01 01 
+  12      FB 0E 0D 00 
+  12      01 01 01 01 
+  13                 	.Ltext0:
+  14                 		.global	bus_I2C_status
+  15                 		.section	.bss.bus_I2C_status,"aw",@nobits
+  16                 		.type	bus_I2C_status, @object
+  17                 		.size	bus_I2C_status, 1
+  18                 	bus_I2C_status:
+  19 0000 00 00       		.space	1
+  20                 		.global	i2c_initialised
+  21                 		.section	.bss.i2c_initialised,"aw",@nobits
+  22                 		.type	i2c_initialised, @object
+  23                 		.size	i2c_initialised, 1
+  24                 	i2c_initialised:
+  25 0000 00 00       		.space	1
+  26                 		.section	.text.I2CAcquire,"ax",@progbits
+  27                 		.global	I2CAcquire
+  28                 		.type	I2CAcquire, @function
+  29                 	I2CAcquire:
+  30                 	.LFB2:
+  31                 		.file 1 "i2c_comms.c"
+   0:i2c_comms.c   **** /*******************************************************************************
+   1:i2c_comms.c   ****  *  Copyright 2014-2015 Qualcomm Technologies International, Ltd.
+   2:i2c_comms.c   ****  *  Part of CSR uEnergy SDK 2.5.1
+   3:i2c_comms.c   ****  *  Application version 2.5.1.0
+   4:i2c_comms.c   ****  *
+   5:i2c_comms.c   ****  *  FILE
+   6:i2c_comms.c   ****  *    i2c_comms.c
+   7:i2c_comms.c   ****  *
+   8:i2c_comms.c   ****  *  DESCRIPTION
+   9:i2c_comms.c   ****  *    This file defines different I2C procedures.
+  10:i2c_comms.c   ****  *
+  11:i2c_comms.c   ****  ******************************************************************************/
+  12:i2c_comms.c   **** 
+  13:i2c_comms.c   **** /*=============================================================================
+  14:i2c_comms.c   ****  *  SDK Header Files
+  15:i2c_comms.c   ****  *============================================================================*/
+  16:i2c_comms.c   **** #include <pio.h>
+  17:i2c_comms.c   **** #include <types.h>
+  18:i2c_comms.c   **** #include <i2c.h>
+  19:i2c_comms.c   **** 
+  20:i2c_comms.c   **** /*=============================================================================
+  21:i2c_comms.c   ****  *  Local Header Files
+  22:i2c_comms.c   ****  *============================================================================*/
+  23:i2c_comms.c   **** #include "i2c_comms.h"
+  24:i2c_comms.c   **** #include "user_config.h"
+  25:i2c_comms.c   **** 
+  26:i2c_comms.c   **** /*=============================================================================
+  27:i2c_comms.c   ****  *  Private Data Type
+  28:i2c_comms.c   ****  *============================================================================*/
+  29:i2c_comms.c   **** /* The following enum will tell if the I2C bus is in Released state or in 
+  30:i2c_comms.c   ****  * Acquired state.
+  31:i2c_comms.c   ****  */
+  32:i2c_comms.c   **** typedef enum
+  33:i2c_comms.c   **** {
+  34:i2c_comms.c   ****     i2c_bus_released = 0x00,
+  35:i2c_comms.c   ****     i2c_bus_acquired = 0x01
+  36:i2c_comms.c   **** } i2c_bus_status;
+  37:i2c_comms.c   **** 
+  38:i2c_comms.c   **** /*=============================================================================
+  39:i2c_comms.c   ****  *  Private Data
+  40:i2c_comms.c   ****  *============================================================================*/
+  41:i2c_comms.c   **** /* Flag for the I2C bus status */
+  42:i2c_comms.c   **** i2c_bus_status bus_I2C_status = i2c_bus_released;
+  43:i2c_comms.c   **** 
+  44:i2c_comms.c   **** bool i2c_initialised = FALSE;
+  45:i2c_comms.c   **** 
+  46:i2c_comms.c   **** /*=============================================================================
+  47:i2c_comms.c   ****  *  Public function definitions
+  48:i2c_comms.c   ****  *============================================================================*/
+  49:i2c_comms.c   **** /*----------------------------------------------------------------------------*
+  50:i2c_comms.c   ****  *  NAME
+  51:i2c_comms.c   ****  *      I2CAcquire
+  52:i2c_comms.c   ****  *
+  53:i2c_comms.c   ****  *  DESCRIPTION
+  54:i2c_comms.c   ****  *      This function acquires the I2C bus
+  55:i2c_comms.c   ****  *
+  56:i2c_comms.c   ****  *  RETURNS
+  57:i2c_comms.c   ****  *      Bool- TRUE if successful.
+  58:i2c_comms.c   ****  *
+  59:i2c_comms.c   ****  *----------------------------------------------------------------------------*/
+  60:i2c_comms.c   **** extern bool I2CAcquire(void)
+  61:i2c_comms.c   **** {
+  32                 	FI0:
+  33 0000 02 0B       		.loc 1 64 0
+  34                 		ld	AL,@bus_I2C_status
+  62:i2c_comms.c   ****     /* If I2C bus is in Released state, acquire it and return success */
+  63:i2c_comms.c   ****     if(bus_I2C_status == i2c_bus_released)
+  35                 	t	@$XAP_AL
+  36 0001 00 00 00 15 		bne	.L2
+  37 0003 00 00 00 99 		.loc 1 66 0
+  38 0005 00 00 00 00 		ld	AL,#0x0001
+  38      00 F0 
+  64:i2c_comms.c   ****     {
+  65:i2c_comms.c   ****         bus_I2C_status = i2c_bus_acquired;
+  39                 	AL,@bus_I2C_status
+  40 0008 01 14       		.loc 1 67 0
+  41 0009 00 00 00 25 		ld	AL,#0x0001
+  66:i2c_comms.c   ****         return TRUE;
+  42                 		AL,@(0,Y)
+  43 000b 01 14       		bra	.L3
+  44 000c 00 27       	.L2:
+  45 000d 00 00 00 00 		.loc 1 71 0
+  45      00 E0 
+  46                 		ld	AL,#0x0000
+  67:i2c_comms.c   ****     }
+  68:i2c_comms.c   ****     else /* Else return Failure */
+  69:i2c_comms.c   ****     {
+  70:i2c_comms.c   ****         return FALSE;
+  47                 	L,@(0,Y)
+  48 0010 00 14       	.L3:
+  49 0011 00 27       		ld	AL,@(0,Y)
+  50                 		.loc 1 73 0
+  51 0012 00 17       		leave	#0x0002
+  71:i2c_comms.c   ****     }
+  72:i2c_comms.c   **** }
+  52                 	:
+  53 0013 02 0F       		.size	I2CAcquire, .-I2CAcquire
+  54                 		.global	__size_of_I2CAcquire
+  55                 		.equ	__size_of_I2CAcquire,. - I2CAcquire
+  56                 		.section	.text.I2CRelease,"ax",@progbits
+  57                 		.global	I2CRelease
+  58                 		.type	I2CRelease, @function
+  59                 	I2CRelease:
+  60                 	.LFB3:
+  61                 		.loc 1 87 0
+  62                 		enter	#0x0001
+  73:i2c_comms.c   **** 
+  74:i2c_comms.c   **** /*----------------------------------------------------------------------------*
+  75:i2c_comms.c   ****  *  NAME
+  76:i2c_comms.c   ****  *      I2CRelease
+  77:i2c_comms.c   ****  *
+  78:i2c_comms.c   ****  *  DESCRIPTION
+  79:i2c_comms.c   ****  *      This function releases the I2C bus
+  80:i2c_comms.c   ****  *
+  81:i2c_comms.c   ****  *  RETURNS
+  82:i2c_comms.c   ****  *      Nothing
+  83:i2c_comms.c   ****  *
+  84:i2c_comms.c   ****  *----------------------------------------------------------------------------*/
+  85:i2c_comms.c   **** extern void I2CRelease(void)
+  86:i2c_comms.c   **** {
+  63                 	oc 1 88 0
+  64 0000 01 0B       		ld	AL,#0x0000
+  65                 		st	AL,@bus_I2C_status
+  87:i2c_comms.c   ****     bus_I2C_status = i2c_bus_released;
+  66                 	oc 1 89 0
+  67 0001 00 14       		bsr	I2cReset
+  68 0002 00 00 00 25 		.loc 1 90 0
+  88:i2c_comms.c   ****     I2cReset();
+  69                 	ave	#0x0001
+  70 0004 00 00 00 00 	.LFE3:
+  70      00 9C 
+  89:i2c_comms.c   **** }
+  71                 	size	I2CRelease, .-I2CRelease
+  72 0007 01 0F       		.global	__size_of_I2CRelease
+  73                 		.equ	__size_of_I2CRelease,. - I2CRelease
+  74                 		.section	.text.I2CcommsInit,"ax",@progbits
+  75                 		.global	I2CcommsInit
+  76                 		.type	I2CcommsInit, @function
+  77                 	I2CcommsInit:
+  78                 	.LFB4:
+  79                 		.loc 1 104 0
+  80                 		enter	#0x0003
+  81                 	.LCFI2:
+  90:i2c_comms.c   **** 
+  91:i2c_comms.c   **** /*----------------------------------------------------------------------------*
+  92:i2c_comms.c   ****  *  NAME
+  93:i2c_comms.c   ****  *      I2CcommsInit
+  94:i2c_comms.c   ****  *
+  95:i2c_comms.c   ****  *  DESCRIPTION
+  96:i2c_comms.c   ****  *      This function initialises the I2C
+  97:i2c_comms.c   ****  *
+  98:i2c_comms.c   ****  *  RETURNS
+  99:i2c_comms.c   ****  *      Nothing
+ 100:i2c_comms.c   ****  *
+ 101:i2c_comms.c   ****  *----------------------------------------------------------------------------*/
+ 102:i2c_comms.c   **** extern void I2CcommsInit(void)
+ 103:i2c_comms.c   **** {
+  82                 	 0
+  83 0000 03 0B       		ld	AL,#0x0001
+  84                 		st	AL,@i2c_initialised
+ 104:i2c_comms.c   ****     /* Initialise I2C if it is not already initialised */
+ 105:i2c_comms.c   ****     //if(!i2c_initialised)
+ 106:i2c_comms.c   ****     {
+ 107:i2c_comms.c   ****         i2c_initialised = TRUE;
+  85                 	oc 1 125 0
+  86 0001 01 14       		ld	AL,#0x00ff
+  87 0002 00 00 00 25 		st	AL,@(0,Y)
+ 108:i2c_comms.c   ****         //PioSetModes(    ((0x01L << I2C_SDA_PIO)), 
+ 109:i2c_comms.c   ****           //                                      pio_mode_i2c_data);
+ 110:i2c_comms.c   **** 		//
+ 111:i2c_comms.c   ****         //PioSetModes(    ((0x01L << I2C_SCL_PIO)), 
+ 112:i2c_comms.c   ****          //                                       pio_mode_i2c_clock);
+ 113:i2c_comms.c   **** 
+ 114:i2c_comms.c   ****         /* Configure the PIOs as Input */
+ 115:i2c_comms.c   ****         //PioSetDirs(     ((0x01L << I2C_SDA_PIO) | (0x01L << I2C_SCL_PIO)), 
+ 116:i2c_comms.c   ****         //                                        FALSE);
+ 117:i2c_comms.c   ****         //PioSetPullModes(((0x01L << I2C_SDA_PIO) | (0x01L << I2C_SCL_PIO)), 
+ 118:i2c_comms.c   ****           //                                      pio_mode_strong_pull_down); 
+ 119:i2c_comms.c   **** 		//
+ 120:i2c_comms.c   ****         //PioSetEventMask(((0x01L << I2C_SDA_PIO) | (0x01L << I2C_SCL_PIO)), 
+ 121:i2c_comms.c   ****         //                                        pio_event_mode_disable);
+ 122:i2c_comms.c   **** 
+ 123:i2c_comms.c   ****         /* Configure the I2C controller */
+ 124:i2c_comms.c   ****         I2cInit(I2C_SDA_PIO,
+  88                 		AL,#0x0007
+  89 0004 01 00 FF 14 		st	AL,@(0x0001,Y)
+  90 0006 00 27       		ld	AL,#0x001d
+  91 0007 07 14       		ld	AH,#0x001c
+  92 0008 01 27       		bsr	I2cInit
+  93 0009 1D 14       		.loc 1 131 0
+  94 000a 1C 10       		ld	AL,#0x0007
+  95 000b 00 00 00 00 		bsr	PioSetI2CPullMode
+  95      00 9C 
+ 125:i2c_comms.c   ****                 I2C_SCL_PIO,
+ 126:i2c_comms.c   ****                 I2C_POWER_PIO_UNDEFINED,
+ 127:i2c_comms.c   ****                 pio_i2c_pull_mode_strong_pull_up);
+ 128:i2c_comms.c   **** 
+ 129:i2c_comms.c   ****         /* Configure pull mode of the I2C pins */
+ 130:i2c_comms.c   ****         PioSetI2CPullMode(pio_i2c_pull_mode_strong_pull_up);
+  96                 	134 0
+  97 000e 07 14       		ld	AL,#0x004e
+  98 000f 00 00 00 00 		ld	AH,#0x004e
+  98      00 9C 
+ 131:i2c_comms.c   **** 
+ 132:i2c_comms.c   ****         /* Configure the I2C clock */
+ 133:i2c_comms.c   ****         I2cConfigClock(I2C_SCL_100KBPS_HIGH_PERIOD, I2C_SCL_100KBPS_LOW_PERIOD);
+  99                 	r	I2cConfigClock
+ 100 0012 4E 14       		.loc 1 137 0
+ 101 0013 4E 10       		ld	AL,#0x0001
+ 102 0014 00 00 00 00 		bsr	I2cEnable
+ 102      00 9C 
+ 134:i2c_comms.c   **** 
+ 135:i2c_comms.c   ****         /* Enable the I2C controller */
+ 136:i2c_comms.c   ****         I2cEnable(TRUE);
+ 103                 	c 1 140 0
+ 104 0017 01 14       		leave	#0x0003
+ 105 0018 00 00 00 00 	.LFE4:
+ 105      00 9C 
+ 137:i2c_comms.c   ****     }
+ 138:i2c_comms.c   **** 
+ 139:i2c_comms.c   **** }
+ 106                 	ize	I2CcommsInit, .-I2CcommsInit
+ 107 001b 03 0F       		.global	__size_of_I2CcommsInit
+ 108                 		.equ	__size_of_I2CcommsInit,. - I2CcommsInit
+ 109                 		.section	.text.I2CReadRegister,"ax",@progbits
+ 110                 		.global	I2CReadRegister
+ 111                 		.type	I2CReadRegister, @function
+ 112                 	I2CReadRegister:
+ 113                 	.LFB5:
+ 114                 		.loc 1 155 0
+ 115                 		enter	#0x0006
+ 116                 	.LCFI3:
+ 140:i2c_comms.c   **** 
+ 141:i2c_comms.c   **** /*-----------------------------------------------------------------------------*
+ 142:i2c_comms.c   ****  *  NAME
+ 143:i2c_comms.c   ****  *      I2CReadRegister
+ 144:i2c_comms.c   ****  *
+ 145:i2c_comms.c   ****  *  DESCRIPTION
+ 146:i2c_comms.c   ****  *      This function reads the specified register from the specified device
+ 147:i2c_comms.c   ****  *
+ 148:i2c_comms.c   ****  *  RETURNS
+ 149:i2c_comms.c   ****  *      TRUE if successful
+ 150:i2c_comms.c   ****  *
+ 151:i2c_comms.c   ****  *----------------------------------------------------------------------------*/
+ 152:i2c_comms.c   **** extern bool I2CReadRegister(uint8 base_address, uint8 reg, 
+ 153:i2c_comms.c   ****                              uint8 *p_register_value)
+ 154:i2c_comms.c   **** {
+ 117                 	0002,Y)
+ 118 0000 06 0B       		st	AH,@(0x0003,Y)
+ 119                 		.loc 1 158 0
+ 120 0001 02 27       		ld	AL,#0x03e8
+ 121 0002 03 23       		st	AL,@(0,Y)
+ 155:i2c_comms.c   ****     bool success;
+ 156:i2c_comms.c   ****     
+ 157:i2c_comms.c   ****     success = ( (I2cRawStart(TRUE)                     == sys_status_success) &&
+ 122                 	L,#0x0000
+ 123 0003 04 00 E8 14 		ld	AH,#0x0001
+ 124 0005 00 27       		bsr	I2cRawCommand
+ 125 0006 00 14       		tst	@$XAP_AL
+ 126 0007 01 10       		bne	.L10
+ 127 0008 00 00 00 00 		ld	AL,@(0x0002,Y)
+ 127      00 9C 
+ 128 000b 00 00 00 99 		bsr	I2cRawWriteByte
+ 129 000d 00 00 00 00 		tst	@$XAP_AL
+ 129      00 F0 
+ 130 0010 02 17       		bne	.L10
+ 131 0011 00 00 00 00 		ld	AL,#0x03e8
+ 131      00 9C 
+ 132 0014 00 00 00 99 		st	AL,@(0,Y)
+ 133 0016 00 00 00 00 		ld	AL,#0x0003
+ 133      00 F0 
+ 134 0019 04 00 E8 14 		ld	AH,#0x0001
+ 135 001b 00 27       		bsr	I2cRawCommand
+ 136 001c 03 14       		tst	@$XAP_AL
+ 137 001d 01 10       		bne	.L10
+ 138 001e 00 00 00 00 		ld	AL,@(0x0003,Y)
+ 138      00 9C 
+ 139 0021 00 00 00 99 		bsr	I2cRawWriteByte
+ 140 0023 00 00 00 00 		tst	@$XAP_AL
+ 140      00 F0 
+ 141 0026 03 17       		bne	.L10
+ 142 0027 00 00 00 00 		ld	AL,#0x03e8
+ 142      00 9C 
+ 143 002a 00 00 00 99 		st	AL,@(0,Y)
+ 144 002c 00 00 00 00 		ld	AL,#0x0003
+ 144      00 F0 
+ 145 002f 04 00 E8 14 		ld	AH,#0x0001
+ 146 0031 00 27       		bsr	I2cRawCommand
+ 147 0032 03 14       		tst	@$XAP_AL
+ 148 0033 01 10       		bne	.L10
+ 149 0034 00 00 00 00 		ld	AL,#0x03e8
+ 149      00 9C 
+ 150 0037 00 00 00 99 		st	AL,@(0,Y)
+ 151 0039 00 00 00 00 		ld	AL,#0x0001
+ 151      00 F0 
+ 152 003c 04 00 E8 14 		ld	AH,#0x0001
+ 153 003e 00 27       		bsr	I2cRawCommand
+ 154 003f 01 14       		tst	@$XAP_AL
+ 155 0040 01 10       		bne	.L10
+ 156 0041 00 00 00 00 		ld	AL,@(0x0002,Y)
+ 156      00 9C 
+ 157 0044 00 00 00 99 		or	AL,#0x0001
+ 158 0046 00 00 00 00 		bsr	I2cRawWriteByte
+ 158      00 F0 
+ 159 0049 02 17       		tst	@$XAP_AL
+ 160 004a 01 B4       		bne	.L10
+ 161 004b 00 00 00 00 		ld	AL,#0x03e8
+ 161      00 9C 
+ 162 004e 00 00 00 99 		st	AL,@(0,Y)
+ 163 0050 00 00 00 00 		ld	AL,#0x0003
+ 163      00 F0 
+ 164 0053 04 00 E8 14 		ld	AH,#0x0001
+ 165 0055 00 27       		bsr	I2cRawCommand
+ 166 0056 03 14       		tst	@$XAP_AL
+ 167 0057 01 10       		bne	.L10
+ 168 0058 00 00 00 00 		ld	AL,@(0x0006,Y)
+ 168      00 9C 
+ 169 005b 00 00 00 99 		bsr	I2cRawReadByte
+ 170 005d 00 00 00 00 		tst	@$XAP_AL
+ 170      00 F0 
+ 171 0060 06 17       		bne	.L10
+ 172 0061 00 00 00 00 		ld	AL,#0x03e8
+ 172      00 9C 
+ 173 0064 00 00 00 99 		st	AL,@(0,Y)
+ 174 0066 00 00 00 00 		ld	AL,#0x0005
+ 174      00 F0 
+ 175 0069 04 00 E8 14 		ld	AH,#0x0001
+ 176 006b 00 27       		bsr	I2cRawCommand
+ 177 006c 05 14       		tst	@$XAP_AL
+ 178 006d 01 10       		bne	.L10
+ 179 006e 00 00 00 00 		ld	AL,#0x03e8
+ 179      00 9C 
+ 180 0071 00 00 00 99 		st	AL,@(0,Y)
+ 181 0073 00 00 00 00 		ld	AL,#0x0002
+ 181      00 F0 
+ 182 0076 04 00 E8 14 		ld	AH,#0x0001
+ 183 0078 00 27       		bsr	I2cRawCommand
+ 184 0079 02 14       		tst	@$XAP_AL
+ 185 007a 01 10       		bne	.L10
+ 186 007b 00 00 00 00 		ld	AL,#0x0001
+ 186      00 9C 
+ 187 007e 00 00 00 99 		st	AL,@(0x0004,Y)
+ 188 0080 00 00 00 00 		bra	.L11
+ 188      00 F0 
+ 189 0083 01 14       	.L10:
+ 190 0084 04 27       		ld	AL,#0x0000
+ 191 0085 00 00 00 00 		st	AL,@(0x0004,Y)
+ 191      00 E0 
+ 192                 	.L11:
+ 193 0088 00 14       		ld	AL,@(0x0004,Y)
+ 194 0089 04 27       		st	AL,@(0x0001,Y)
+ 195                 		.loc 1 169 0
+ 196 008a 04 17       		ld	AL,#0x03e8
+ 197 008b 01 27       		bsr	I2cRawComplete
+ 158:i2c_comms.c   ****                 (I2cRawWriteByte(base_address)         == sys_status_success) &&
+ 159:i2c_comms.c   ****                 (I2cRawWaitAck(TRUE)                   == sys_status_success) &&
+ 160:i2c_comms.c   ****                 (I2cRawWriteByte(reg)                  == sys_status_success) &&
+ 161:i2c_comms.c   ****                 (I2cRawWaitAck(TRUE)                   == sys_status_success) &&
+ 162:i2c_comms.c   ****                 (I2cRawRestart(TRUE)                   == sys_status_success) &&
+ 163:i2c_comms.c   ****                 (I2cRawWriteByte((base_address | 0x1)) == sys_status_success) &&
+ 164:i2c_comms.c   ****                 (I2cRawWaitAck(TRUE)                   == sys_status_success) &&
+ 165:i2c_comms.c   ****                 (I2cRawReadByte(p_register_value)      == sys_status_success) &&
+ 166:i2c_comms.c   ****                 (I2cRawSendNack(TRUE)                  == sys_status_success) &&
+ 167:i2c_comms.c   ****                 (I2cRawStop(TRUE)                      == sys_status_success));
+ 168:i2c_comms.c   ****     I2cRawComplete(1 * MILLISECOND);
+ 198                 	173 0
+ 199 008c 04 00 E8 14 		leave	#0x0006
+ 200 008e 00 00 00 00 	.LFE5:
+ 200      00 9C 
+ 169:i2c_comms.c   ****     I2cRawTerminate();
+ 201                 	ize	I2CReadRegister, .-I2CReadRegister
+ 202 0091 00 00 00 00 		.global	__size_of_I2CReadRegister
+ 202      00 9C 
+ 170:i2c_comms.c   ****     
+ 171:i2c_comms.c   ****     return success;
+ 203                 	equ	__size_of_I2CReadRegister,. - I2CReadRegister
+ 204 0094 01 17       		.section	.text.I2CReadRegisters,"ax",@progbits
+ 172:i2c_comms.c   **** }
+ 205                 	global	I2CReadRegisters
+ 206 0095 06 0F       		.type	I2CReadRegisters, @function
+ 207                 	I2CReadRegisters:
+ 208                 	.LFB6:
+ 209                 		.loc 1 189 0
+ 210                 		enter	#0x0006
+ 211                 	.LCFI4:
+ 212                 		st	AL,@(0x0003,Y)
+ 213                 		st	AH,@(0x0004,Y)
+ 214                 		.loc 1 190 0
+ 215                 		ld	AL,#0x0000
+ 173:i2c_comms.c   **** 
+ 174:i2c_comms.c   **** /*-----------------------------------------------------------------------------*
+ 175:i2c_comms.c   ****  *  NAME
+ 176:i2c_comms.c   ****  *      I2CReadRegisters
+ 177:i2c_comms.c   ****  *
+ 178:i2c_comms.c   ****  *  DESCRIPTION
+ 179:i2c_comms.c   ****  *      This function reads a contiguous sequence of registers from the 
+ 180:i2c_comms.c   ****  *      specified device
+ 181:i2c_comms.c   ****  *
+ 182:i2c_comms.c   ****  *  RETURNS
+ 183:i2c_comms.c   ****  *      TRUE if successful
+ 184:i2c_comms.c   ****  *
+ 185:i2c_comms.c   ****  *----------------------------------------------------------------------------*/
+ 186:i2c_comms.c   **** extern bool I2CReadRegisters(uint8 base_address, uint8 start_reg, 
+ 187:i2c_comms.c   ****                               uint8 num_bytes, uint8 *p_buffer)
+ 188:i2c_comms.c   **** {
+ 216                 	0002,Y)
+ 217 0000 06 0B       		.loc 1 194 0
+ 218                 		ld	AL,#0x03e8
+ 219 0001 03 27       		st	AL,@(0,Y)
+ 220 0002 04 23       		ld	AL,#0x0000
+ 189:i2c_comms.c   ****     bool success = FALSE;
+ 221                 	H,#0x0001
+ 222 0003 00 14       		bsr	I2cRawCommand
+ 223 0004 02 27       		tst	@$XAP_AL
+ 190:i2c_comms.c   ****     uint8 *p_write_pos;
+ 191:i2c_comms.c   **** 
+ 192:i2c_comms.c   ****     /* We assume that the supplied buffer is big enough. */
+ 193:i2c_comms.c   ****     if( (I2cRawStart(TRUE)                     == sys_status_success) &&
+ 224                 	e	.L14
+ 225 0005 04 00 E8 14 		ld	AL,@(0x0003,Y)
+ 226 0007 00 27       		bsr	I2cRawWriteByte
+ 227 0008 00 14       		tst	@$XAP_AL
+ 228 0009 01 10       		bne	.L14
+ 229 000a 00 00 00 00 		ld	AL,#0x03e8
+ 229      00 9C 
+ 230 000d 00 00 00 99 		st	AL,@(0,Y)
+ 231 000f 00 00 00 00 		ld	AL,#0x0003
+ 231      00 F0 
+ 232 0012 03 17       		ld	AH,#0x0001
+ 233 0013 00 00 00 00 		bsr	I2cRawCommand
+ 233      00 9C 
+ 234 0016 00 00 00 99 		tst	@$XAP_AL
+ 235 0018 00 00 00 00 		bne	.L14
+ 235      00 F0 
+ 236 001b 04 00 E8 14 		ld	AL,@(0x0004,Y)
+ 237 001d 00 27       		bsr	I2cRawWriteByte
+ 238 001e 03 14       		tst	@$XAP_AL
+ 239 001f 01 10       		bne	.L14
+ 240 0020 00 00 00 00 		ld	AL,#0x03e8
+ 240      00 9C 
+ 241 0023 00 00 00 99 		st	AL,@(0,Y)
+ 242 0025 00 00 00 00 		ld	AL,#0x0003
+ 242      00 F0 
+ 243 0028 04 17       		ld	AH,#0x0001
+ 244 0029 00 00 00 00 		bsr	I2cRawCommand
+ 244      00 9C 
+ 245 002c 00 00 00 99 		tst	@$XAP_AL
+ 246 002e 00 00 00 00 		bne	.L14
+ 246      00 F0 
+ 247 0031 04 00 E8 14 		ld	AL,#0x03e8
+ 248 0033 00 27       		st	AL,@(0,Y)
+ 249 0034 03 14       		ld	AL,#0x0001
+ 250 0035 01 10       		ld	AH,#0x0001
+ 251 0036 00 00 00 00 		bsr	I2cRawCommand
+ 251      00 9C 
+ 252 0039 00 00 00 99 		tst	@$XAP_AL
+ 253 003b 00 00 00 00 		bne	.L14
+ 253      00 F0 
+ 254 003e 04 00 E8 14 		ld	AL,@(0x0003,Y)
+ 255 0040 00 27       		or	AL,#0x0001
+ 256 0041 01 14       		bsr	I2cRawWriteByte
+ 257 0042 01 10       		tst	@$XAP_AL
+ 258 0043 00 00 00 00 		bne	.L14
+ 258      00 9C 
+ 259 0046 00 00 00 99 		ld	AL,#0x03e8
+ 260 0048 00 00 00 00 		st	AL,@(0,Y)
+ 260      00 F0 
+ 261 004b 03 17       		ld	AL,#0x0003
+ 262 004c 01 B4       		ld	AH,#0x0001
+ 263 004d 00 00 00 00 		bsr	I2cRawCommand
+ 263      00 9C 
+ 264 0050 00 00 00 99 		tst	@$XAP_AL
+ 265 0052 00 00 00 00 		bne	.L14
+ 265      00 F0 
+ 266 0055 04 00 E8 14 		.loc 1 203 0
+ 267 0057 00 27       		ld	AL,@(0x0007,Y)
+ 268 0058 03 14       		st	AL,@(0x0001,Y)
+ 269 0059 01 10       		bra	.L15
+ 270 005a 00 00 00 00 	.L16:
+ 270      00 9C 
+ 271 005d 00 00 00 99 		.loc 1 207 0
+ 272 005f 00 00 00 00 		ld	AH,@(0x0001,Y)
+ 272      00 F0 
+ 194:i2c_comms.c   ****         (I2cRawWriteByte(base_address)         == sys_status_success) &&
+ 195:i2c_comms.c   ****         (I2cRawWaitAck(TRUE)                   == sys_status_success) &&
+ 196:i2c_comms.c   ****         (I2cRawWriteByte(start_reg)            == sys_status_success) &&
+ 197:i2c_comms.c   ****         (I2cRawWaitAck(TRUE)                   == sys_status_success) &&
+ 198:i2c_comms.c   ****         (I2cRawRestart(TRUE)                   == sys_status_success) &&
+ 199:i2c_comms.c   ****         (I2cRawWriteByte((base_address | 0x1)) == sys_status_success) &&
+ 200:i2c_comms.c   ****         (I2cRawWaitAck(TRUE)                   == sys_status_success))
+ 201:i2c_comms.c   ****     {
+ 202:i2c_comms.c   ****         for(p_write_pos = p_buffer;
+ 273                 		st	X,@(0x0001,Y)
+ 274 0062 07 17       		ld	AL,@$XAP_AH
+ 275 0063 01 27       		bsr	I2cRawReadByte
+ 276 0064 00 00 00 00 		.loc 1 208 0
+ 276      00 E0 
+ 277                 		ld	AL,#0x03e8
+ 203:i2c_comms.c   ****             num_bytes > 1;
+ 204:i2c_comms.c   ****             num_bytes--)
+ 205:i2c_comms.c   ****         {
+ 206:i2c_comms.c   ****             I2cRawReadByte(p_write_pos++); /* Assume this works - */
+ 278                 	L,@(0,Y)
+ 279 0067 01 13       		ld	AL,#0x0004
+ 280 0068 01 17       		ld	AH,#0x0001
+ 281 0069 00 00 00 19 		bsr	I2cRawCommand
+ 282 006b 01 38       		.loc 1 205 0
+ 283 006c 01 2B       		ld	AL,@(0x0006,Y)
+ 284 006d 00 00 00 15 		ld	X,@$XAP_AL
+ 285 006f 00 00 00 00 		add	X,#0xffff
+ 285      00 9C 
+ 207:i2c_comms.c   ****             I2cRawSendAck(TRUE);        /* everything up to this point has. */
+ 286                 	0x0006,Y)
+ 287 0072 04 00 E8 14 	.L15:
+ 288 0074 00 27       		.loc 1 204 0
+ 289 0075 04 14       		ld	AL,@(0x0006,Y)
+ 290 0076 01 10       		cmp	AL,#0x0002
+ 291 0077 00 00 00 00 		bcc	.L16
+ 291      00 9C 
+ 205:i2c_comms.c   ****             num_bytes--)
+ 292                 	1 211 0
+ 293 007a 06 17       		ld	AH,@(0x0001,Y)
+ 294 007b 00 00 00 19 		ld	AL,@(0x0001,Y)
+ 295 007d FF 38       		ld	X,@$XAP_AL
+ 296 007e 06 2B       		add	X,#0x0001
+ 297                 		st	X,@(0x0001,Y)
+ 204:i2c_comms.c   ****             num_bytes > 1;
+ 298                 	,@$XAP_AH
+ 299 007f 06 17       		bsr	I2cRawReadByte
+ 300 0080 02 84       		.loc 1 212 0
+ 301 0081 00 00 00 00 		ld	AL,#0x03e8
+ 301      00 F8 
+ 208:i2c_comms.c   ****         }
+ 209:i2c_comms.c   ****         /* This is the last byte */
+ 210:i2c_comms.c   ****         I2cRawReadByte(p_write_pos++);
+ 302                 	AL,@(0,Y)
+ 303 0084 01 13       		ld	AL,#0x0005
+ 304 0085 01 17       		ld	AH,#0x0001
+ 305 0086 00 00 00 19 		bsr	I2cRawCommand
+ 306 0088 01 38       		.loc 1 214 0
+ 307 0089 01 2B       		ld	AL,#0x03e8
+ 308 008a 00 00 00 15 		st	AL,@(0,Y)
+ 309 008c 00 00 00 00 		ld	AL,#0x0002
+ 309      00 9C 
+ 211:i2c_comms.c   ****         I2cRawSendNack(TRUE);
+ 310                 	0x0001
+ 311 008f 04 00 E8 14 		bsr	I2cRawCommand
+ 312 0091 00 27       		ld	AH,@$XAP_AL
+ 313 0092 05 14       		ld	AL,#0x0000
+ 314 0093 01 10       		st	AL,@(0x0002,Y)
+ 315 0094 00 00 00 00 		tst	@$XAP_AH
+ 315      00 9C 
+ 212:i2c_comms.c   ****         
+ 213:i2c_comms.c   ****         success = (I2cRawStop(TRUE) == sys_status_success);
+ 316                 	L14
+ 317 0097 04 00 E8 14 		ld	AL,#0x0001
+ 318 0099 00 27       		st	AL,@(0x0002,Y)
+ 319 009a 02 14       	.L14:
+ 320 009b 01 10       		.loc 1 216 0
+ 321 009c 00 00 00 00 		ld	AL,#0x03e8
+ 321      00 9C 
+ 322 009f 00 00 00 11 		bsr	I2cRawComplete
+ 323 00a1 00 14       		.loc 1 217 0
+ 324 00a2 02 27       		bsr	I2cRawTerminate
+ 325 00a3 00 00 00 99 		.loc 1 219 0
+ 326 00a5 00 00 00 00 		ld	AL,@(0x0002,Y)
+ 326      00 F0 
+ 327 00a8 01 14       		.loc 1 220 0
+ 328 00a9 02 27       		leave	#0x0006
+ 329                 	.LFE6:
+ 214:i2c_comms.c   ****     }
+ 215:i2c_comms.c   ****     I2cRawComplete(1 * MILLISECOND);
+ 330                 	Registers, .-I2CReadRegisters
+ 331 00aa 04 00 E8 14 		.global	__size_of_I2CReadRegisters
+ 332 00ac 00 00 00 00 		.equ	__size_of_I2CReadRegisters,. - I2CReadRegisters
+ 332      00 9C 
+ 216:i2c_comms.c   ****     I2cRawTerminate();
+ 333                 	ection	.text.I2CWriteRegister,"ax",@progbits
+ 334 00af 00 00 00 00 		.global	I2CWriteRegister
+ 334      00 9C 
+ 217:i2c_comms.c   ****     
+ 218:i2c_comms.c   ****     return success;
+ 335                 	type	I2CWriteRegister, @function
+ 336 00b2 02 17       	I2CWriteRegister:
+ 219:i2c_comms.c   **** }
+ 337                 	FB7:
+ 338 00b3 06 0F       		.loc 1 237 0
+ 339                 		enter	#0x0006
+ 340                 	.LCFI5:
+ 341                 		st	AL,@(0x0002,Y)
+ 342                 		st	AH,@(0x0003,Y)
+ 343                 		.loc 1 240 0
+ 344                 		ld	AL,#0x03e8
+ 345                 		st	AL,@(0,Y)
+ 346                 		ld	AL,#0x0000
+ 347                 		ld	AH,#0x0001
+ 220:i2c_comms.c   **** 
+ 221:i2c_comms.c   **** 
+ 222:i2c_comms.c   **** /*-----------------------------------------------------------------------------*
+ 223:i2c_comms.c   ****  *  NAME
+ 224:i2c_comms.c   ****  *      I2CWriteRegister
+ 225:i2c_comms.c   ****  *
+ 226:i2c_comms.c   ****  *  DESCRIPTION
+ 227:i2c_comms.c   ****  *      This function writes one byte of data to a specified register on the 
+ 228:i2c_comms.c   ****  *      specified device
+ 229:i2c_comms.c   ****  *
+ 230:i2c_comms.c   ****  *  RETURNS
+ 231:i2c_comms.c   ****  *      TRUE if successful
+ 232:i2c_comms.c   ****  *
+ 233:i2c_comms.c   ****  *----------------------------------------------------------------------------*/
+ 234:i2c_comms.c   **** extern bool I2CWriteRegister(uint8 base_address, uint8 reg, 
+ 235:i2c_comms.c   ****                               uint8 register_value)
+ 236:i2c_comms.c   **** {
+ 348                 	Command
+ 349 0000 06 0B       		tst	@$XAP_AL
+ 350                 		bne	.L20
+ 351 0001 02 27       		ld	AL,@(0x0002,Y)
+ 352 0002 03 23       		bsr	I2cRawWriteByte
+ 237:i2c_comms.c   ****     bool success;
+ 238:i2c_comms.c   ****     
+ 239:i2c_comms.c   ****     success = ( (I2cRawStart(TRUE)               == sys_status_success) &&
+ 353                 	@$XAP_AL
+ 354 0003 04 00 E8 14 		bne	.L20
+ 355 0005 00 27       		ld	AL,#0x03e8
+ 356 0006 00 14       		st	AL,@(0,Y)
+ 357 0007 01 10       		ld	AL,#0x0003
+ 358 0008 00 00 00 00 		ld	AH,#0x0001
+ 358      00 9C 
+ 359 000b 00 00 00 99 		bsr	I2cRawCommand
+ 360 000d 00 00 00 00 		tst	@$XAP_AL
+ 360      00 F0 
+ 361 0010 02 17       		bne	.L20
+ 362 0011 00 00 00 00 		ld	AL,@(0x0003,Y)
+ 362      00 9C 
+ 363 0014 00 00 00 99 		bsr	I2cRawWriteByte
+ 364 0016 00 00 00 00 		tst	@$XAP_AL
+ 364      00 F0 
+ 365 0019 04 00 E8 14 		bne	.L20
+ 366 001b 00 27       		ld	AL,#0x03e8
+ 367 001c 03 14       		st	AL,@(0,Y)
+ 368 001d 01 10       		ld	AL,#0x0003
+ 369 001e 00 00 00 00 		ld	AH,#0x0001
+ 369      00 9C 
+ 370 0021 00 00 00 99 		bsr	I2cRawCommand
+ 371 0023 00 00 00 00 		tst	@$XAP_AL
+ 371      00 F0 
+ 372 0026 03 17       		bne	.L20
+ 373 0027 00 00 00 00 		ld	AL,@(0x0006,Y)
+ 373      00 9C 
+ 374 002a 00 00 00 99 		bsr	I2cRawWriteByte
+ 375 002c 00 00 00 00 		tst	@$XAP_AL
+ 375      00 F0 
+ 376 002f 04 00 E8 14 		bne	.L20
+ 377 0031 00 27       		ld	AL,#0x03e8
+ 378 0032 03 14       		st	AL,@(0,Y)
+ 379 0033 01 10       		ld	AL,#0x0003
+ 380 0034 00 00 00 00 		ld	AH,#0x0001
+ 380      00 9C 
+ 381 0037 00 00 00 99 		bsr	I2cRawCommand
+ 382 0039 00 00 00 00 		tst	@$XAP_AL
+ 382      00 F0 
+ 383 003c 06 17       		bne	.L20
+ 384 003d 00 00 00 00 		ld	AL,#0x03e8
+ 384      00 9C 
+ 385 0040 00 00 00 99 		st	AL,@(0,Y)
+ 386 0042 00 00 00 00 		ld	AL,#0x0002
+ 386      00 F0 
+ 387 0045 04 00 E8 14 		ld	AH,#0x0001
+ 388 0047 00 27       		bsr	I2cRawCommand
+ 389 0048 03 14       		tst	@$XAP_AL
+ 390 0049 01 10       		bne	.L20
+ 391 004a 00 00 00 00 		ld	AL,#0x0001
+ 391      00 9C 
+ 392 004d 00 00 00 99 		st	AL,@(0x0004,Y)
+ 393 004f 00 00 00 00 		bra	.L21
+ 393      00 F0 
+ 394 0052 04 00 E8 14 	.L20:
+ 395 0054 00 27       		ld	AL,#0x0000
+ 396 0055 02 14       		st	AL,@(0x0004,Y)
+ 397 0056 01 10       	.L21:
+ 398 0057 00 00 00 00 		ld	AL,@(0x0004,Y)
+ 398      00 9C 
+ 399 005a 00 00 00 99 		st	AL,@(0x0001,Y)
+ 400 005c 00 00 00 00 		.loc 1 249 0
+ 400      00 F0 
+ 401 005f 01 14       		ld	AL,#0x03e8
+ 402 0060 04 27       		bsr	I2cRawComplete
+ 403 0061 00 00 00 00 		.loc 1 250 0
+ 403      00 E0 
+ 404                 		bsr	I2cRawTerminate
+ 405 0064 00 14       		.loc 1 252 0
+ 406 0065 04 27       		ld	AL,@(0x0001,Y)
+ 407                 		.loc 1 253 0
+ 408 0066 04 17       		leave	#0x0006
+ 409 0067 01 27       	.LFE7:
+ 240:i2c_comms.c   ****                 (I2cRawWriteByte(base_address)   == sys_status_success) &&
+ 241:i2c_comms.c   ****                 (I2cRawWaitAck(TRUE)             == sys_status_success) &&
+ 242:i2c_comms.c   ****                 (I2cRawWriteByte(reg)            == sys_status_success) &&
+ 243:i2c_comms.c   ****                 (I2cRawWaitAck(TRUE)             == sys_status_success) &&
+ 244:i2c_comms.c   ****                 (I2cRawWriteByte(register_value) == sys_status_success) &&
+ 245:i2c_comms.c   ****                 (I2cRawWaitAck(TRUE)             == sys_status_success) &&
+ 246:i2c_comms.c   ****                 (I2cRawStop(TRUE)                == sys_status_success));
+ 247:i2c_comms.c   **** 
+ 248:i2c_comms.c   ****     I2cRawComplete(1 * MILLISECOND);
+ 410                 	ze_of_I2CWriteRegister
+ 411 0068 04 00 E8 14 		.equ	__size_of_I2CWriteRegister,. - I2CWriteRegister
+ 412 006a 00 00 00 00 		.section	.debug_frame,"",@progbits
+ 412      00 9C 
+ 249:i2c_comms.c   ****     I2cRawTerminate();
+ 413                 	rame0:
+ 414 006d 00 00 00 00 		.4byte	.LECIE0-.LSCIE0
+ 414      00 9C 
+ 250:i2c_comms.c   ****     
+ 251:i2c_comms.c   ****     return success;
+ 415                 	SCIE0:
+ 416 0070 01 17       		.4byte	0xffffffff
+ 252:i2c_comms.c   **** }
+ 417                 	1byte	0x1
+ 418 0071 06 0F       		.ascii "\000"
+ 419                 		.1byte	0x1
+ 420                 		.1byte	0x7f
+ 421                 		.1byte	0x3
+ 422                 		.1byte	0xc
+ 423                 		.1byte	0x5
+ 424                 		.1byte	0x0
+ 425 0000 00 00 00 00 		.p2align	2
+ 426                 	.LECIE0:
+ 427 0002 FF FF FF FF 	.LSFDE0:
+ 428 0004 01          		.4byte	.LEFDE0-.LASFDE0
+ 429 0004 00          	.LASFDE0:
+ 430 0005 01          		.4byte	.Lframe0
+ 431 0005 7F          		.4byte	.LFB2
+ 432 0006 03          		.4byte	.LFE2-.LFB2
+ 433 0006 0C          		.1byte	0x4
+ 434 0007 05          		.4byte	.LCFI0-.LFB2
+ 435 0007 00          		.1byte	0xe
+ 436                 		.1byte	0x2
+ 437                 		.1byte	0x83
+ 438                 		.1byte	0x1
+ 439 0008 00 00 00 00 		.p2align	2
+ 440                 	.LEFDE0:
+ 441 000a 00 00 00 00 	.LSFDE2:
+ 442 000c 00 00 00 00 		.4byte	.LEFDE2-.LASFDE2
+ 443 000e 00 00 00 00 	.LASFDE2:
+ 444 0010 41          		.4byte	.Lframe0
+ 445                 		.4byte	.LFB3
+ 446 0010 0E          		.4byte	.LFE3-.LFB3
+ 447 0011 02          		.1byte	0x4
+ 448 0011 83          		.4byte	.LCFI1-.LFB3
+ 449 0012 01          		.1byte	0xe
+ 450 0012 00 00 00    		.1byte	0x1
+ 451                 		.1byte	0x83
+ 452                 		.1byte	0x1
+ 453 0014 00 00 00 00 		.p2align	2
+ 454                 	.LEFDE2:
+ 455 0016 00 00 00 00 	.LSFDE4:
+ 456 0018 00 00 00 00 		.4byte	.LEFDE4-.LASFDE4
+ 457 001a 00 00 00 00 	.LASFDE4:
+ 458 001c 41          		.4byte	.Lframe0
+ 459                 		.4byte	.LFB4
+ 460 001c 0E          		.4byte	.LFE4-.LFB4
+ 461 001d 01          		.1byte	0x4
+ 462 001d 83          		.4byte	.LCFI2-.LFB4
+ 463 001e 01          		.1byte	0xe
+ 464 001e 00 00 00    		.1byte	0x3
+ 465                 		.1byte	0x83
+ 466                 		.1byte	0x1
+ 467 0020 00 00 00 00 		.p2align	2
+ 468                 	.LEFDE4:
+ 469 0022 00 00 00 00 	.LSFDE6:
+ 470 0024 00 00 00 00 		.4byte	.LEFDE6-.LASFDE6
+ 471 0026 00 00 00 00 	.LASFDE6:
+ 472 0028 41          		.4byte	.Lframe0
+ 473                 		.4byte	.LFB5
+ 474 0028 0E          		.4byte	.LFE5-.LFB5
+ 475 0029 03          		.1byte	0x4
+ 476 0029 83          		.4byte	.LCFI3-.LFB5
+ 477 002a 01          		.1byte	0xe
+ 478 002a 00 00 00    		.1byte	0x6
+ 479                 		.1byte	0x83
+ 480                 		.1byte	0x1
+ 481 002c 00 00 00 00 		.p2align	2
+ 482                 	.LEFDE6:
+ 483 002e 00 00 00 00 	.LSFDE8:
+ 484 0030 00 00 00 00 		.4byte	.LEFDE8-.LASFDE8
+ 485 0032 00 00 00 00 	.LASFDE8:
+ 486 0034 41          		.4byte	.Lframe0
+ 487                 		.4byte	.LFB6
+ 488 0034 0E          		.4byte	.LFE6-.LFB6
+ 489 0035 06          		.1byte	0x4
+ 490 0035 83          		.4byte	.LCFI4-.LFB6
+ 491 0036 01          		.1byte	0xe
+ 492 0036 00 00 00    		.1byte	0x6
+ 493                 		.1byte	0x83
+ 494                 		.1byte	0x1
+ 495 0038 00 00 00 00 		.p2align	2
+ 496                 	.LEFDE8:
+ 497 003a 00 00 00 00 	.LSFDE10:
+ 498 003c 00 00 00 00 		.4byte	.LEFDE10-.LASFDE10
+ 499 003e 00 00 00 00 	.LASFDE10:
+ 500 0040 41          		.4byte	.Lframe0
+ 501                 		.4byte	.LFB7
+ 502 0040 0E          		.4byte	.LFE7-.LFB7
+ 503 0041 06          		.1byte	0x4
+ 504 0041 83          		.4byte	.LCFI5-.LFB7
+ 505 0042 01          		.1byte	0xe
+ 506 0042 00 00 00    		.1byte	0x6
+ 507                 		.1byte	0x83
+ 508                 		.1byte	0x1
+ 509 0044 00 00 00 00 		.p2align	2
+ 510                 	.LEFDE10:
+ 511 0046 00 00 00 00 		.text
+ 512 0048 00 00 00 00 	.Letext0:
+ 513 004a 00 00 00 00 		.section	.debug_loc,"",@progbits
+ 514 004c 41          	.Ldebug_loc0:
+ 515                 	.LLST0:
+ 516 004c 0E          		.4byte	.LFB2
+ 517 004d 06          		.4byte	.LCFI0
+ 518 004d 83          		.2byte	0x1
+ 519 004e 01          		.1byte	0x55
+ 520 004e 00 00 00    		.4byte	.LCFI0
+ 521                 		.4byte	.LFE2
+ 522                 		.2byte	0x2
+ 523                 		.1byte	0x75
+ 524                 		.1byte	0x2
+ 525                 		.4byte	0x0
+ 526                 		.4byte	0x0
+ 527 0000 00 00 00 00 	.LLST1:
+ 528 0002 00 00 00 00 		.4byte	.LFB3
+ 529 0004 00 01       		.4byte	.LCFI1
+ 530 0005 55          		.2byte	0x1
+ 531 0005 00 00 00 00 		.1byte	0x55
+ 532 0007 00 00 00 00 		.4byte	.LCFI1
+ 533 0009 00 02       		.4byte	.LFE3
+ 534 000a 75          		.2byte	0x2
+ 535 000b 02          		.1byte	0x75
+ 536 000b 00 00 00 00 		.1byte	0x1
+ 537 000d 00 00 00 00 		.4byte	0x0
+ 538                 		.4byte	0x0
+ 539 000f 00 00 00 00 	.LLST2:
+ 540 0011 00 00 00 00 		.4byte	.LFB4
+ 541 0013 00 01       		.4byte	.LCFI2
+ 542 0014 55          		.2byte	0x1
+ 543 0015 00 00 00 00 		.1byte	0x55
+ 544 0017 00 00 00 00 		.4byte	.LCFI2
+ 545 0019 00 02       		.4byte	.LFE4
+ 546 001a 75          		.2byte	0x2
+ 547 001a 01          		.1byte	0x75
+ 548 001b 00 00 00 00 		.1byte	0x3
+ 549 001d 00 00 00 00 		.4byte	0x0
+ 550                 		.4byte	0x0
+ 551 001f 00 00 00 00 	.LLST3:
+ 552 0021 00 00 00 00 		.4byte	.LFB5
+ 553 0023 00 01       		.4byte	.LCFI3
+ 554 0024 55          		.2byte	0x1
+ 555 0024 00 00 00 00 		.1byte	0x55
+ 556 0026 00 00 00 00 		.4byte	.LCFI3
+ 557 0028 00 02       		.4byte	.LFE5
+ 558 0029 75          		.2byte	0x2
+ 559 002a 03          		.1byte	0x75
+ 560 002a 00 00 00 00 		.1byte	0x6
+ 561 002c 00 00 00 00 		.4byte	0x0
+ 562                 		.4byte	0x0
+ 563 002e 00 00 00 00 	.LLST4:
+ 564 0030 00 00 00 00 		.4byte	.LFB6
+ 565 0032 00 01       		.4byte	.LCFI4
+ 566 0033 55          		.2byte	0x1
+ 567 0034 00 00 00 00 		.1byte	0x55
+ 568 0036 00 00 00 00 		.4byte	.LCFI4
+ 569 0038 00 02       		.4byte	.LFE6
+ 570 0039 75          		.2byte	0x2
+ 571 0039 06          		.1byte	0x75
+ 572 003a 00 00 00 00 		.1byte	0x6
+ 573 003c 00 00 00 00 		.4byte	0x0
+ 574                 		.4byte	0x0
+ 575 003e 00 00 00 00 	.LLST5:
+ 576 0040 00 00 00 00 		.4byte	.LFB7
+ 577 0042 00 01       		.4byte	.LCFI5
+ 578 0043 55          		.2byte	0x1
+ 579 0043 00 00 00 00 		.1byte	0x55
+ 580 0045 00 00 00 00 		.4byte	.LCFI5
+ 581 0047 00 02       		.4byte	.LFE7
+ 582 0048 75          		.2byte	0x2
+ 583 0049 06          		.1byte	0x75
+ 584 0049 00 00 00 00 		.1byte	0x6
+ 585 004b 00 00 00 00 		.4byte	0x0
+ 586                 		.4byte	0x0
+ 587 004d 00 00 00 00 		.file 2 "C:/CSR_uEnergy_SDK-2.4.5.13/tools/include/CSR101x_A05/types.h"
+ 588 004f 00 00 00 00 		.file 3 "C:/CSR_uEnergy_SDK-2.4.5.13/tools/include/CSR101x_A05/status.h"
+ 589 0051 00 01       		.file 4 "C:/CSR_uEnergy_SDK-2.4.5.13/tools/include/CSR101x_A05/pio.h"
+ 590 0052 55          		.file 5 "C:/CSR_uEnergy_SDK-2.4.5.13/tools/include/CSR101x_A05/i2c.h"
+ 591 0053 00 00 00 00 		.section	.debug_info
+ 592 0055 00 00 00 00 		.4byte	0x4d5
+ 593 0057 00 02       		.2byte	0x2
+ 594 0058 75          		.4byte	.Ldebug_abbrev0
+ 595 0058 06          		.1byte	0x4
+ 596 0059 00 00 00 00 		.1byte	0x1
+ 597 005b 00 00 00 00 		.4byte	.LASF125
+ 598                 		.1byte	0x1
+ 599                 		.4byte	.LASF126
+ 600                 		.4byte	.LASF127
+ 601                 		.4byte	0x0
+ 602                 		.4byte	0x0
+ 603 0000 00 00 04 D5 		.4byte	.Ldebug_ranges0+0x0
+ 604 0002 00 02       		.4byte	.Ldebug_line0
+ 605 0003 00 00 00 00 		.1byte	0x2
+ 606 0005 04          		.4byte	.LASF6
+ 607 0005 01          		.1byte	0x2
+ 608 0006 00 00 00 00 		.1byte	0x1e
+ 609 0008 01          		.4byte	0x34
+ 610 0008 00 00 00 00 		.1byte	0x3
+ 611 000a 00 00 00 00 		.1byte	0x2
+ 612 000c 00 00 00 00 		.1byte	0x8
+ 613 000e 00 00 00 00 		.4byte	.LASF0
+ 614 0010 00 00 00 00 		.1byte	0x3
+ 615 0012 00 00 00 00 		.1byte	0x2
+ 616 0014 02          		.1byte	0x7
+ 617 0015 00 00 00 00 		.4byte	.LASF1
+ 618 0017 02          		.1byte	0x3
+ 619 0017 1E          		.1byte	0x4
+ 620 0018 00 00 00 34 		.1byte	0x7
+ 621 001a 03          		.4byte	.LASF2
+ 622 001a 02          		.1byte	0x3
+ 623 001b 08          		.1byte	0x2
+ 624 001b 00 00 00 00 		.1byte	0x6
+ 625 001d 03          		.4byte	.LASF3
+ 626 001e 02          		.1byte	0x3
+ 627 001e 07          		.1byte	0x2
+ 628 001f 00 00 00 00 		.1byte	0x5
+ 629 0021 03          		.4byte	.LASF4
+ 630 0021 04          		.1byte	0x3
+ 631 0022 07          		.1byte	0x4
+ 632 0022 00 00 00 00 		.1byte	0x5
+ 633 0024 03          		.4byte	.LASF5
+ 634 0025 02          		.1byte	0x2
+ 635 0025 06          		.4byte	.LASF7
+ 636 0026 00 00 00 00 		.1byte	0x2
+ 637 0028 03          		.1byte	0x2a
+ 638 0028 02          		.4byte	0x69
+ 639 0029 05          		.1byte	0x3
+ 640 0029 00 00 00 00 		.1byte	0x2
+ 641 002b 03          		.1byte	0x7
+ 642 002c 04          		.4byte	.LASF8
+ 643 002c 05          		.1byte	0x4
+ 644 002d 00 00 00 00 		.1byte	0x2
+ 645 002f 02          		.1byte	0x3
+ 646 002f 00 00 00 00 		.1byte	0x39
+ 647 0031 02          		.4byte	0x2be
+ 648 0032 2A          		.1byte	0x5
+ 649 0032 00 00 00 69 		.4byte	.LASF9
+ 650 0034 03          		.1byte	0x0
+ 651 0035 02          		.1byte	0x5
+ 652 0035 07          		.4byte	.LASF10
+ 653 0036 00 00 00 00 		.1byte	0x80,0x2
+ 654 0038 04          		.1byte	0x5
+ 655 0038 02          		.4byte	.LASF11
+ 656 0039 03          		.1byte	0x81,0x2
+ 657 0039 39          		.1byte	0x5
+ 658 003a 00 00 02 BE 		.4byte	.LASF12
+ 659 003c 05          		.1byte	0x82,0x2
+ 660 003c 00 00 00 00 		.1byte	0x5
+ 661 003e 00          		.4byte	.LASF13
+ 662 003f 05          		.1byte	0x83,0x2
+ 663 003f 00 00 00 00 		.1byte	0x5
+ 664 0041 80 02       		.4byte	.LASF14
+ 665 0042 05          		.1byte	0x84,0x2
+ 666 0043 00 00 00 00 		.1byte	0x5
+ 667 0045 81 02       		.4byte	.LASF15
+ 668 0046 05          		.1byte	0x85,0x2
+ 669 0046 00 00 00 00 		.1byte	0x5
+ 670 0048 82 02       		.4byte	.LASF16
+ 671 0049 05          		.1byte	0x80,0x4
+ 672 004a 00 00 00 00 		.1byte	0x5
+ 673 004c 83 02       		.4byte	.LASF17
+ 674 004d 05          		.1byte	0x81,0x4
+ 675 004d 00 00 00 00 		.1byte	0x5
+ 676 004f 84 02       		.4byte	.LASF18
+ 677 0050 05          		.1byte	0x82,0x4
+ 678 0051 00 00 00 00 		.1byte	0x5
+ 679 0053 85 02       		.4byte	.LASF19
+ 680 0054 05          		.1byte	0x83,0x4
+ 681 0054 00 00 00 00 		.1byte	0x5
+ 682 0056 80 04       		.4byte	.LASF20
+ 683 0057 05          		.1byte	0x84,0x4
+ 684 0058 00 00 00 00 		.1byte	0x5
+ 685 005a 81 04       		.4byte	.LASF21
+ 686 005b 05          		.1byte	0x85,0x4
+ 687 005b 00 00 00 00 		.1byte	0x5
+ 688 005d 82 04       		.4byte	.LASF22
+ 689 005e 05          		.1byte	0x86,0x4
+ 690 005f 00 00 00 00 		.1byte	0x5
+ 691 0061 83 04       		.4byte	.LASF23
+ 692 0062 05          		.1byte	0x87,0x4
+ 693 0062 00 00 00 00 		.1byte	0x5
+ 694 0064 84 04       		.4byte	.LASF24
+ 695 0065 05          		.1byte	0x88,0x4
+ 696 0066 00 00 00 00 		.1byte	0x5
+ 697 0068 85 04       		.4byte	.LASF25
+ 698 0069 05          		.1byte	0x89,0x4
+ 699 0069 00 00 00 00 		.1byte	0x5
+ 700 006b 86 04       		.4byte	.LASF26
+ 701 006c 05          		.1byte	0x8a,0x4
+ 702 006d 00 00 00 00 		.1byte	0x5
+ 703 006f 87 04       		.4byte	.LASF27
+ 704 0070 05          		.1byte	0x8b,0x4
+ 705 0070 00 00 00 00 		.1byte	0x5
+ 706 0072 88 04       		.4byte	.LASF28
+ 707 0073 05          		.1byte	0x80,0x6
+ 708 0074 00 00 00 00 		.1byte	0x5
+ 709 0076 89 04       		.4byte	.LASF29
+ 710 0077 05          		.1byte	0x81,0x6
+ 711 0077 00 00 00 00 		.1byte	0x5
+ 712 0079 8A 04       		.4byte	.LASF30
+ 713 007a 05          		.1byte	0x82,0x6
+ 714 007b 00 00 00 00 		.1byte	0x5
+ 715 007d 8B 04       		.4byte	.LASF31
+ 716 007e 05          		.1byte	0x83,0x6
+ 717 007e 00 00 00 00 		.1byte	0x5
+ 718 0080 80 06       		.4byte	.LASF32
+ 719 0081 05          		.1byte	0x84,0x6
+ 720 0082 00 00 00 00 		.1byte	0x5
+ 721 0084 81 06       		.4byte	.LASF33
+ 722 0085 05          		.1byte	0x85,0x6
+ 723 0085 00 00 00 00 		.1byte	0x5
+ 724 0087 82 06       		.4byte	.LASF34
+ 725 0088 05          		.1byte	0x80,0x8
+ 726 0089 00 00 00 00 		.1byte	0x5
+ 727 008b 83 06       		.4byte	.LASF35
+ 728 008c 05          		.1byte	0x81,0x8
+ 729 008c 00 00 00 00 		.1byte	0x5
+ 730 008e 84 06       		.4byte	.LASF36
+ 731 008f 05          		.1byte	0x82,0x8
+ 732 0090 00 00 00 00 		.1byte	0x5
+ 733 0092 85 06       		.4byte	.LASF37
+ 734 0093 05          		.1byte	0x80,0x10
+ 735 0093 00 00 00 00 		.1byte	0x5
+ 736 0095 80 08       		.4byte	.LASF38
+ 737 0096 05          		.1byte	0x81,0x10
+ 738 0097 00 00 00 00 		.1byte	0x5
+ 739 0099 81 08       		.4byte	.LASF39
+ 740 009a 05          		.1byte	0x82,0x10
+ 741 009a 00 00 00 00 		.1byte	0x5
+ 742 009c 82 08       		.4byte	.LASF40
+ 743 009d 05          		.1byte	0x83,0x10
+ 744 009e 00 00 00 00 		.1byte	0x5
+ 745 00a0 80 10       		.4byte	.LASF41
+ 746 00a1 05          		.1byte	0x80,0x12
+ 747 00a1 00 00 00 00 		.1byte	0x5
+ 748 00a3 81 10       		.4byte	.LASF42
+ 749 00a4 05          		.1byte	0x81,0x14
+ 750 00a5 00 00 00 00 		.1byte	0x5
+ 751 00a7 82 10       		.4byte	.LASF43
+ 752 00a8 05          		.1byte	0x82,0x14
+ 753 00a8 00 00 00 00 		.1byte	0x5
+ 754 00aa 83 10       		.4byte	.LASF44
+ 755 00ab 05          		.1byte	0x83,0x14
+ 756 00ac 00 00 00 00 		.1byte	0x5
+ 757 00ae 80 12       		.4byte	.LASF45
+ 758 00af 05          		.1byte	0x84,0x14
+ 759 00af 00 00 00 00 		.1byte	0x5
+ 760 00b1 81 14       		.4byte	.LASF46
+ 761 00b2 05          		.1byte	0x85,0x14
+ 762 00b3 00 00 00 00 		.1byte	0x5
+ 763 00b5 82 14       		.4byte	.LASF47
+ 764 00b6 05          		.1byte	0x86,0x14
+ 765 00b6 00 00 00 00 		.1byte	0x5
+ 766 00b8 83 14       		.4byte	.LASF48
+ 767 00b9 05          		.1byte	0x87,0x14
+ 768 00ba 00 00 00 00 		.1byte	0x5
+ 769 00bc 84 14       		.4byte	.LASF49
+ 770 00bd 05          		.1byte	0x88,0x14
+ 771 00bd 00 00 00 00 		.1byte	0x5
+ 772 00bf 85 14       		.4byte	.LASF50
+ 773 00c0 05          		.1byte	0x89,0x14
+ 774 00c1 00 00 00 00 		.1byte	0x5
+ 775 00c3 86 14       		.4byte	.LASF51
+ 776 00c4 05          		.1byte	0x8a,0x14
+ 777 00c4 00 00 00 00 		.1byte	0x5
+ 778 00c6 87 14       		.4byte	.LASF52
+ 779 00c7 05          		.1byte	0x8b,0x14
+ 780 00c8 00 00 00 00 		.1byte	0x5
+ 781 00ca 88 14       		.4byte	.LASF53
+ 782 00cb 05          		.1byte	0x8c,0x14
+ 783 00cb 00 00 00 00 		.1byte	0x5
+ 784 00cd 89 14       		.4byte	.LASF54
+ 785 00ce 05          		.1byte	0x8d,0x14
+ 786 00cf 00 00 00 00 		.1byte	0x5
+ 787 00d1 8A 14       		.4byte	.LASF55
+ 788 00d2 05          		.1byte	0x8e,0x14
+ 789 00d2 00 00 00 00 		.1byte	0x5
+ 790 00d4 8B 14       		.4byte	.LASF56
+ 791 00d5 05          		.1byte	0x8f,0x14
+ 792 00d6 00 00 00 00 		.1byte	0x5
+ 793 00d8 8C 14       		.4byte	.LASF57
+ 794 00d9 05          		.1byte	0x90,0x14
+ 795 00d9 00 00 00 00 		.1byte	0x5
+ 796 00db 8D 14       		.4byte	.LASF58
+ 797 00dc 05          		.1byte	0x91,0x14
+ 798 00dd 00 00 00 00 		.1byte	0x5
+ 799 00df 8E 14       		.4byte	.LASF59
+ 800 00e0 05          		.1byte	0xb3,0x14
+ 801 00e0 00 00 00 00 		.1byte	0x5
+ 802 00e2 8F 14       		.4byte	.LASF60
+ 803 00e3 05          		.1byte	0xb4,0x14
+ 804 00e4 00 00 00 00 		.1byte	0x5
+ 805 00e6 90 14       		.4byte	.LASF61
+ 806 00e7 05          		.1byte	0xb5,0x14
+ 807 00e7 00 00 00 00 		.1byte	0x5
+ 808 00e9 91 14       		.4byte	.LASF62
+ 809 00ea 05          		.1byte	0xb6,0x14
+ 810 00eb 00 00 00 00 		.1byte	0x5
+ 811 00ed B3 14       		.4byte	.LASF63
+ 812 00ee 05          		.1byte	0xb7,0x14
+ 813 00ee 00 00 00 00 		.1byte	0x5
+ 814 00f0 B4 14       		.4byte	.LASF64
+ 815 00f1 05          		.1byte	0xb8,0x14
+ 816 00f2 00 00 00 00 		.1byte	0x5
+ 817 00f4 B5 14       		.4byte	.LASF65
+ 818 00f5 05          		.1byte	0xb9,0x14
+ 819 00f5 00 00 00 00 		.1byte	0x5
+ 820 00f7 B6 14       		.4byte	.LASF66
+ 821 00f8 05          		.1byte	0xba,0x14
+ 822 00f9 00 00 00 00 		.1byte	0x5
+ 823 00fb B7 14       		.4byte	.LASF67
+ 824 00fc 05          		.1byte	0xbb,0x14
+ 825 00fc 00 00 00 00 		.1byte	0x5
+ 826 00fe B8 14       		.4byte	.LASF68
+ 827 00ff 05          		.1byte	0xbc,0x14
+ 828 0100 00 00 00 00 		.1byte	0x5
+ 829 0102 B9 14       		.4byte	.LASF69
+ 830 0103 05          		.1byte	0xbd,0x14
+ 831 0103 00 00 00 00 		.1byte	0x5
+ 832 0105 BA 14       		.4byte	.LASF70
+ 833 0106 05          		.1byte	0xbf,0x14
+ 834 0107 00 00 00 00 		.1byte	0x5
+ 835 0109 BB 14       		.4byte	.LASF71
+ 836 010a 05          		.1byte	0xc0,0x14
+ 837 010a 00 00 00 00 		.1byte	0x5
+ 838 010c BC 14       		.4byte	.LASF72
+ 839 010d 05          		.1byte	0xc1,0x14
+ 840 010e 00 00 00 00 		.1byte	0x5
+ 841 0110 BD 14       		.4byte	.LASF73
+ 842 0111 05          		.1byte	0xc2,0x14
+ 843 0111 00 00 00 00 		.1byte	0x5
+ 844 0113 BF 14       		.4byte	.LASF74
+ 845 0114 05          		.1byte	0xc3,0x14
+ 846 0115 00 00 00 00 		.1byte	0x5
+ 847 0117 C0 14       		.4byte	.LASF75
+ 848 0118 05          		.1byte	0x80,0x15
+ 849 0118 00 00 00 00 		.1byte	0x5
+ 850 011a C1 14       		.4byte	.LASF76
+ 851 011b 05          		.1byte	0x80,0x15
+ 852 011c 00 00 00 00 		.1byte	0x5
+ 853 011e C2 14       		.4byte	.LASF77
+ 854 011f 05          		.1byte	0xff,0x15
+ 855 011f 00 00 00 00 		.1byte	0x5
+ 856 0121 C3 14       		.4byte	.LASF78
+ 857 0122 05          		.1byte	0x80,0x16
+ 858 0123 00 00 00 00 		.1byte	0x5
+ 859 0125 80 15       		.4byte	.LASF79
+ 860 0126 05          		.1byte	0x81,0x16
+ 861 0126 00 00 00 00 		.1byte	0x5
+ 862 0128 80 15       		.4byte	.LASF80
+ 863 0129 05          		.1byte	0x82,0x16
+ 864 012a 00 00 00 00 		.1byte	0x5
+ 865 012c FF 15       		.4byte	.LASF81
+ 866 012d 05          		.1byte	0x83,0x16
+ 867 012d 00 00 00 00 		.1byte	0x5
+ 868 012f 80 16       		.4byte	.LASF82
+ 869 0130 05          		.1byte	0x84,0x16
+ 870 0131 00 00 00 00 		.1byte	0x5
+ 871 0133 81 16       		.4byte	.LASF83
+ 872 0134 05          		.1byte	0x85,0x16
+ 873 0134 00 00 00 00 		.1byte	0x5
+ 874 0136 82 16       		.4byte	.LASF84
+ 875 0137 05          		.1byte	0x86,0x16
+ 876 0138 00 00 00 00 		.1byte	0x5
+ 877 013a 83 16       		.4byte	.LASF85
+ 878 013b 05          		.1byte	0x87,0x16
+ 879 013b 00 00 00 00 		.1byte	0x5
+ 880 013d 84 16       		.4byte	.LASF86
+ 881 013e 05          		.1byte	0x88,0x16
+ 882 013f 00 00 00 00 		.1byte	0x5
+ 883 0141 85 16       		.4byte	.LASF87
+ 884 0142 05          		.1byte	0x89,0x16
+ 885 0142 00 00 00 00 		.1byte	0x5
+ 886 0144 86 16       		.4byte	.LASF88
+ 887 0145 05          		.1byte	0x8a,0x16
+ 888 0146 00 00 00 00 		.1byte	0x5
+ 889 0148 87 16       		.4byte	.LASF89
+ 890 0149 05          		.1byte	0xff,0x16
+ 891 0149 00 00 00 00 		.1byte	0x5
+ 892 014b 88 16       		.4byte	.LASF90
+ 893 014c 05          		.1byte	0x80,0x17
+ 894 014d 00 00 00 00 		.1byte	0x5
+ 895 014f 89 16       		.4byte	.LASF91
+ 896 0150 05          		.1byte	0xff,0xff,0x3
+ 897 0150 00 00 00 00 		.1byte	0x0
+ 898 0152 8A 16       		.1byte	0x4
+ 899 0153 05          		.1byte	0x2
+ 900 0154 00 00 00 00 		.1byte	0x4
+ 901 0156 FF 16       		.1byte	0xa7
+ 902 0157 05          		.4byte	0x2f1
+ 903 0157 00 00 00 00 		.1byte	0x5
+ 904 0159 80 17       		.4byte	.LASF92
+ 905 015a 05          		.1byte	0x0
+ 906 015b 00 00 00 00 		.1byte	0x5
+ 907 015d FF FF 03    		.4byte	.LASF93
+ 908 015e 00          		.1byte	0x1
+ 909 015f 04          		.1byte	0x5
+ 910 015f 02          		.4byte	.LASF94
+ 911 0160 04          		.1byte	0x3
+ 912 0160 A7          		.1byte	0x5
+ 913 0161 00 00 02 F1 		.4byte	.LASF95
+ 914 0163 05          		.1byte	0x5
+ 915 0163 00 00 00 00 		.1byte	0x5
+ 916 0165 00          		.4byte	.LASF96
+ 917 0166 05          		.1byte	0x7
+ 918 0166 00 00 00 00 		.1byte	0x5
+ 919 0168 01          		.4byte	.LASF97
+ 920 0169 05          		.1byte	0x9
+ 921 0169 00 00 00 00 		.1byte	0x5
+ 922 016b 03          		.4byte	.LASF98
+ 923 016c 05          		.1byte	0xd
+ 924 016c 00 00 00 00 		.1byte	0x0
+ 925 016e 05          		.1byte	0x6
+ 926 016f 05          		.1byte	0x2
+ 927 016f 00 00 00 00 		.1byte	0x7
+ 928 0171 07          		.1byte	0x4
+ 929 0172 05          		.1byte	0x2
+ 930 0172 00 00 00 00 		.1byte	0x5
+ 931 0174 09          		.1byte	0x69
+ 932 0175 05          		.4byte	0x32d
+ 933 0175 00 00 00 00 		.1byte	0x5
+ 934 0177 0D          		.4byte	.LASF99
+ 935 0178 00          		.1byte	0x0
+ 936 0178 06          		.1byte	0x5
+ 937 0179 02          		.4byte	.LASF100
+ 938 0179 07          		.1byte	0x1
+ 939 017a 04          		.1byte	0x5
+ 940 017a 02          		.4byte	.LASF101
+ 941 017b 05          		.1byte	0x2
+ 942 017b 69          		.1byte	0x5
+ 943 017c 00 00 03 2D 		.4byte	.LASF102
+ 944 017e 05          		.1byte	0x3
+ 945 017e 00 00 00 00 		.1byte	0x5
+ 946 0180 00          		.4byte	.LASF103
+ 947 0181 05          		.1byte	0x4
+ 948 0181 00 00 00 00 		.1byte	0x5
+ 949 0183 01          		.4byte	.LASF104
+ 950 0184 05          		.1byte	0x5
+ 951 0184 00 00 00 00 		.1byte	0x5
+ 952 0186 02          		.4byte	.LASF105
+ 953 0187 05          		.1byte	0x6
+ 954 0187 00 00 00 00 		.1byte	0x5
+ 955 0189 03          		.4byte	.LASF106
+ 956 018a 05          		.1byte	0x7
+ 957 018a 00 00 00 00 		.1byte	0x0
+ 958 018c 04          		.1byte	0x4
+ 959 018d 05          		.1byte	0x2
+ 960 018d 00 00 00 00 		.1byte	0x1
+ 961 018f 05          		.1byte	0x22
+ 962 0190 05          		.4byte	0x342
+ 963 0190 00 00 00 00 		.1byte	0x5
+ 964 0192 06          		.4byte	.LASF107
+ 965 0193 05          		.1byte	0x0
+ 966 0193 00 00 00 00 		.1byte	0x5
+ 967 0195 07          		.4byte	.LASF108
+ 968 0196 00          		.1byte	0x1
+ 969 0196 04          		.1byte	0x0
+ 970 0197 02          		.1byte	0x2
+ 971 0197 01          		.4byte	.LASF109
+ 972 0198 22          		.1byte	0x1
+ 973 0198 00 00 03 42 		.1byte	0x25
+ 974 019a 05          		.4byte	0x32d
+ 975 019b 00 00 00 00 		.1byte	0x7
+ 976 019d 00          		.1byte	0x1
+ 977 019d 05          		.4byte	.LASF128
+ 978 019e 00 00 00 00 		.1byte	0x1
+ 979 01a0 01          		.1byte	0x3e
+ 980 01a0 00          		.1byte	0x1
+ 981 01a1 02          		.4byte	0x5e
+ 982 01a1 00 00 00 00 		.4byte	.LFB2
+ 983 01a3 01          		.4byte	.LFE2
+ 984 01a4 25          		.4byte	.LLST0
+ 985 01a4 00 00 03 2D 		.1byte	0x8
+ 986 01a6 07          		.1byte	0x1
+ 987 01a7 01          		.4byte	.LASF110
+ 988 01a7 00 00 00 00 		.1byte	0x1
+ 989 01a9 01          		.1byte	0x57
+ 990 01aa 3E          		.1byte	0x1
+ 991 01aa 01          		.4byte	.LFB3
+ 992 01ab 00 00 00 5E 		.4byte	.LFE3
+ 993 01ad 00 00 00 00 		.4byte	.LLST1
+ 994 01af 00 00 00 00 		.1byte	0x8
+ 995 01b1 00 00 00 00 		.1byte	0x1
+ 996 01b3 08          		.4byte	.LASF111
+ 997 01b3 01          		.1byte	0x1
+ 998 01b4 00 00 00 00 		.1byte	0x68
+ 999 01b6 01          		.1byte	0x1
+ 1000 01b6 57          		.4byte	.LFB4
+ 1001 01b7 01          		.4byte	.LFE4
+ 1002 01b7 00 00 00 00 		.4byte	.LLST2
+ 1003 01b9 00 00 00 00 		.1byte	0x9
+ 1004 01bb 00 00 00 00 		.1byte	0x1
+ 1005 01bd 08          		.4byte	.LASF114
+ 1006 01be 01          		.1byte	0x1
+ 1007 01be 00 00 00 00 		.1byte	0x9b
+ 1008 01c0 01          		.1byte	0x1
+ 1009 01c1 68          		.4byte	0x5e
+ 1010 01c1 01          		.4byte	.LFB5
+ 1011 01c2 00 00 00 00 		.4byte	.LFE5
+ 1012 01c4 00 00 00 00 		.4byte	.LLST3
+ 1013 01c6 00 00 00 00 		.4byte	0x3e6
+ 1014 01c8 09          		.1byte	0xa
+ 1015 01c8 01          		.4byte	.LASF112
+ 1016 01c9 00 00 00 00 		.1byte	0x1
+ 1017 01cb 01          		.1byte	0x99
+ 1018 01cb 9B          		.4byte	0x29
+ 1019 01cc 01          		.1byte	0x2
+ 1020 01cc 00 00 00 5E 		.1byte	0x76
+ 1021 01ce 00 00 00 00 		.1byte	0x2
+ 1022 01d0 00 00 00 00 		.1byte	0xb
+ 1023 01d2 00 00 00 00 		.ascii "reg\000"
+ 1024 01d4 00 00 03 E6 		.1byte	0x1
+ 1025 01d6 0A          		.1byte	0x99
+ 1026 01d7 00 00 00 00 		.4byte	0x29
+ 1027 01d9 01          		.1byte	0x2
+ 1028 01d9 99          		.1byte	0x76
+ 1029 01da 00 00 00 29 		.1byte	0x3
+ 1030 01dc 02          		.1byte	0xa
+ 1031 01dc 76          		.4byte	.LASF113
+ 1032 01dd 02          		.1byte	0x1
+ 1033 01dd 0B          		.1byte	0x9a
+ 1034 01de 72 65 67 00 		.4byte	0x3e6
+ 1035 01e0 01          		.1byte	0x2
+ 1036 01e0 99          		.1byte	0x91
+ 1037 01e1 00 00 00 29 		.1byte	0x0
+ 1038 01e3 02          		.1byte	0xc
+ 1039 01e3 76          		.4byte	.LASF119
+ 1040 01e4 03          		.1byte	0x1
+ 1041 01e4 0A          		.1byte	0x9c
+ 1042 01e5 00 00 00 00 		.4byte	0x5e
+ 1043 01e7 01          		.1byte	0x2
+ 1044 01e7 9A          		.1byte	0x76
+ 1045 01e8 00 00 03 E6 		.1byte	0x1
+ 1046 01ea 02          		.1byte	0x0
+ 1047 01ea 91          		.1byte	0xd
+ 1048 01eb 00          		.1byte	0x2
+ 1049 01eb 0C          		.4byte	0x29
+ 1050 01ec 00 00 00 00 		.1byte	0x9
+ 1051 01ee 01          		.1byte	0x1
+ 1052 01ee 9C          		.4byte	.LASF115
+ 1053 01ef 00 00 00 5E 		.1byte	0x1
+ 1054 01f1 02          		.1byte	0xbd
+ 1055 01f1 76          		.1byte	0x1
+ 1056 01f2 01          		.4byte	0x5e
+ 1057 01f2 00          		.4byte	.LFB6
+ 1058 01f3 0D          		.4byte	.LFE6
+ 1059 01f3 02          		.4byte	.LLST4
+ 1060 01f4 00 00 00 29 		.4byte	0x45e
+ 1061 01f6 09          		.1byte	0xa
+ 1062 01f6 01          		.4byte	.LASF112
+ 1063 01f7 00 00 00 00 		.1byte	0x1
+ 1064 01f9 01          		.1byte	0xbb
+ 1065 01f9 BD          		.4byte	0x29
+ 1066 01fa 01          		.1byte	0x2
+ 1067 01fa 00 00 00 5E 		.1byte	0x76
+ 1068 01fc 00 00 00 00 		.1byte	0x3
+ 1069 01fe 00 00 00 00 		.1byte	0xa
+ 1070 0200 00 00 00 00 		.4byte	.LASF116
+ 1071 0202 00 00 04 5E 		.1byte	0x1
+ 1072 0204 0A          		.1byte	0xbb
+ 1073 0205 00 00 00 00 		.4byte	0x29
+ 1074 0207 01          		.1byte	0x2
+ 1075 0207 BB          		.1byte	0x76
+ 1076 0208 00 00 00 29 		.1byte	0x4
+ 1077 020a 02          		.1byte	0xa
+ 1078 020a 76          		.4byte	.LASF117
+ 1079 020b 03          		.1byte	0x1
+ 1080 020b 0A          		.1byte	0xbc
+ 1081 020c 00 00 00 00 		.4byte	0x29
+ 1082 020e 01          		.1byte	0x2
+ 1083 020e BB          		.1byte	0x91
+ 1084 020f 00 00 00 29 		.1byte	0x0
+ 1085 0211 02          		.1byte	0xa
+ 1086 0211 76          		.4byte	.LASF118
+ 1087 0212 04          		.1byte	0x1
+ 1088 0212 0A          		.1byte	0xbc
+ 1089 0213 00 00 00 00 		.4byte	0x3e6
+ 1090 0215 01          		.1byte	0x2
+ 1091 0215 BC          		.1byte	0x91
+ 1092 0216 00 00 00 29 		.1byte	0x1
+ 1093 0218 02          		.1byte	0xc
+ 1094 0218 91          		.4byte	.LASF119
+ 1095 0219 00          		.1byte	0x1
+ 1096 0219 0A          		.1byte	0xbe
+ 1097 021a 00 00 00 00 		.4byte	0x5e
+ 1098 021c 01          		.1byte	0x2
+ 1099 021c BC          		.1byte	0x76
+ 1100 021d 00 00 03 E6 		.1byte	0x2
+ 1101 021f 02          		.1byte	0xc
+ 1102 021f 91          		.4byte	.LASF120
+ 1103 0220 01          		.1byte	0x1
+ 1104 0220 0C          		.1byte	0xbf
+ 1105 0221 00 00 00 00 		.4byte	0x3e6
+ 1106 0223 01          		.1byte	0x2
+ 1107 0223 BE          		.1byte	0x76
+ 1108 0224 00 00 00 5E 		.1byte	0x1
+ 1109 0226 02          		.1byte	0x0
+ 1110 0226 76          		.1byte	0x9
+ 1111 0227 02          		.1byte	0x1
+ 1112 0227 0C          		.4byte	.LASF121
+ 1113 0228 00 00 00 00 		.1byte	0x1
+ 1114 022a 01          		.1byte	0xed
+ 1115 022a BF          		.1byte	0x1
+ 1116 022b 00 00 03 E6 		.4byte	0x5e
+ 1117 022d 02          		.4byte	.LFB7
+ 1118 022d 76          		.4byte	.LFE7
+ 1119 022e 01          		.4byte	.LLST5
+ 1120 022e 00          		.4byte	0x4b4
+ 1121 022f 09          		.1byte	0xa
+ 1122 022f 01          		.4byte	.LASF112
+ 1123 0230 00 00 00 00 		.1byte	0x1
+ 1124 0232 01          		.1byte	0xeb
+ 1125 0232 ED          		.4byte	0x29
+ 1126 0233 01          		.1byte	0x2
+ 1127 0233 00 00 00 5E 		.1byte	0x76
+ 1128 0235 00 00 00 00 		.1byte	0x2
+ 1129 0237 00 00 00 00 		.1byte	0xb
+ 1130 0239 00 00 00 00 		.ascii "reg\000"
+ 1131 023b 00 00 04 B4 		.1byte	0x1
+ 1132 023d 0A          		.1byte	0xeb
+ 1133 023e 00 00 00 00 		.4byte	0x29
+ 1134 0240 01          		.1byte	0x2
+ 1135 0240 EB          		.1byte	0x76
+ 1136 0241 00 00 00 29 		.1byte	0x3
+ 1137 0243 02          		.1byte	0xa
+ 1138 0243 76          		.4byte	.LASF122
+ 1139 0244 02          		.1byte	0x1
+ 1140 0244 0B          		.1byte	0xec
+ 1141 0245 72 65 67 00 		.4byte	0x29
+ 1142 0247 01          		.1byte	0x2
+ 1143 0247 EB          		.1byte	0x91
+ 1144 0248 00 00 00 29 		.1byte	0x0
+ 1145 024a 02          		.1byte	0xc
+ 1146 024a 76          		.4byte	.LASF119
+ 1147 024b 03          		.1byte	0x1
+ 1148 024b 0A          		.1byte	0xee
+ 1149 024c 00 00 00 00 		.4byte	0x5e
+ 1150 024e 01          		.1byte	0x2
+ 1151 024e EC          		.1byte	0x76
+ 1152 024f 00 00 00 29 		.1byte	0x1
+ 1153 0251 02          		.1byte	0x0
+ 1154 0251 91          		.1byte	0xe
+ 1155 0252 00          		.4byte	.LASF123
+ 1156 0252 0C          		.1byte	0x1
+ 1157 0253 00 00 00 00 		.1byte	0x2b
+ 1158 0255 01          		.4byte	0x342
+ 1159 0255 EE          		.1byte	0x1
+ 1160 0256 00 00 00 5E 		.1byte	0x5
+ 1161 0258 02          		.1byte	0x3
+ 1162 0258 76          		.4byte	bus_I2C_status
+ 1163 0259 01          		.1byte	0xe
+ 1164 0259 00          		.4byte	.LASF124
+ 1165 025a 0E          		.1byte	0x1
+ 1166 025a 00 00 00 00 		.1byte	0x2d
+ 1167 025c 01          		.4byte	0x5e
+ 1168 025d 2B          		.1byte	0x1
+ 1169 025d 00 00 03 42 		.1byte	0x5
+ 1170 025f 01          		.1byte	0x3
+ 1171 0260 05          		.4byte	i2c_initialised
+ 1172 0260 03          		.1byte	0x0
+ 1173 0261 00 00 00 00 		.section	.debug_abbrev
+ 1174 0263 0E          		.1byte	0x1
+ 1175 0263 00 00 00 00 		.1byte	0x11
+ 1176 0265 01          		.1byte	0x1
+ 1177 0266 2D          		.1byte	0x25
+ 1178 0266 00 00 00 5E 		.1byte	0xe
+ 1179 0268 01          		.1byte	0x13
+ 1180 0269 05          		.1byte	0xb
+ 1181 0269 03          		.1byte	0x3
+ 1182 026a 00 00 00 00 		.1byte	0xe
+ 1183 026c 00          		.1byte	0x1b
+ 1184                 		.1byte	0xe
+ 1185 0000 01          		.1byte	0x11
+ 1186 0000 11          		.1byte	0x1
+ 1187 0001 01          		.1byte	0x52
+ 1188 0001 25          		.1byte	0x1
+ 1189 0002 0E          		.1byte	0x55
+ 1190 0002 13          		.1byte	0x6
+ 1191 0003 0B          		.1byte	0x10
+ 1192 0003 03          		.1byte	0x6
+ 1193 0004 0E          		.1byte	0x0
+ 1194 0004 1B          		.1byte	0x0
+ 1195 0005 0E          		.1byte	0x2
+ 1196 0005 11          		.1byte	0x16
+ 1197 0006 01          		.1byte	0x0
+ 1198 0006 52          		.1byte	0x3
+ 1199 0007 01          		.1byte	0xe
+ 1200 0007 55          		.1byte	0x3a
+ 1201 0008 06          		.1byte	0xb
+ 1202 0008 10          		.1byte	0x3b
+ 1203 0009 06          		.1byte	0xb
+ 1204 0009 00          		.1byte	0x49
+ 1205 000a 00          		.1byte	0x13
+ 1206 000a 02          		.1byte	0x0
+ 1207 000b 16          		.1byte	0x0
+ 1208 000b 00          		.1byte	0x3
+ 1209 000c 03          		.1byte	0x24
+ 1210 000c 0E          		.1byte	0x0
+ 1211 000d 3A          		.1byte	0xb
+ 1212 000d 0B          		.1byte	0xb
+ 1213 000e 3B          		.1byte	0x3e
+ 1214 000e 0B          		.1byte	0xb
+ 1215 000f 49          		.1byte	0x3
+ 1216 000f 13          		.1byte	0xe
+ 1217 0010 00          		.1byte	0x0
+ 1218 0010 00          		.1byte	0x0
+ 1219 0011 03          		.1byte	0x4
+ 1220 0011 24          		.1byte	0x4
+ 1221 0012 00          		.1byte	0x1
+ 1222 0012 0B          		.1byte	0xb
+ 1223 0013 0B          		.1byte	0xb
+ 1224 0013 3E          		.1byte	0x3a
+ 1225 0014 0B          		.1byte	0xb
+ 1226 0014 03          		.1byte	0x3b
+ 1227 0015 0E          		.1byte	0xb
+ 1228 0015 00          		.1byte	0x1
+ 1229 0016 00          		.1byte	0x13
+ 1230 0016 04          		.1byte	0x0
+ 1231 0017 04          		.1byte	0x0
+ 1232 0017 01          		.1byte	0x5
+ 1233 0018 0B          		.1byte	0x28
+ 1234 0018 0B          		.1byte	0x0
+ 1235 0019 3A          		.1byte	0x3
+ 1236 0019 0B          		.1byte	0xe
+ 1237 001a 3B          		.1byte	0x1c
+ 1238 001a 0B          		.1byte	0xd
+ 1239 001b 01          		.1byte	0x0
+ 1240 001b 13          		.1byte	0x0
+ 1241 001c 00          		.1byte	0x6
+ 1242 001c 00          		.1byte	0x24
+ 1243 001d 05          		.1byte	0x0
+ 1244 001d 28          		.1byte	0xb
+ 1245 001e 00          		.1byte	0xb
+ 1246 001e 03          		.1byte	0x3e
+ 1247 001f 0E          		.1byte	0xb
+ 1248 001f 1C          		.1byte	0x0
+ 1249 0020 0D          		.1byte	0x0
+ 1250 0020 00          		.1byte	0x7
+ 1251 0021 00          		.1byte	0x2e
+ 1252 0021 06          		.1byte	0x0
+ 1253 0022 24          		.1byte	0x3f
+ 1254 0022 00          		.1byte	0xc
+ 1255 0023 0B          		.1byte	0x3
+ 1256 0023 0B          		.1byte	0xe
+ 1257 0024 3E          		.1byte	0x3a
+ 1258 0024 0B          		.1byte	0xb
+ 1259 0025 00          		.1byte	0x3b
+ 1260 0025 00          		.1byte	0xb
+ 1261 0026 07          		.1byte	0x27
+ 1262 0026 2E          		.1byte	0xc
+ 1263 0027 00          		.1byte	0x49
+ 1264 0027 3F          		.1byte	0x13
+ 1265 0028 0C          		.1byte	0x11
+ 1266 0028 03          		.1byte	0x1
+ 1267 0029 0E          		.1byte	0x12
+ 1268 0029 3A          		.1byte	0x1
+ 1269 002a 0B          		.1byte	0x40
+ 1270 002a 3B          		.1byte	0x6
+ 1271 002b 0B          		.1byte	0x0
+ 1272 002b 27          		.1byte	0x0
+ 1273 002c 0C          		.1byte	0x8
+ 1274 002c 49          		.1byte	0x2e
+ 1275 002d 13          		.1byte	0x0
+ 1276 002d 11          		.1byte	0x3f
+ 1277 002e 01          		.1byte	0xc
+ 1278 002e 12          		.1byte	0x3
+ 1279 002f 01          		.1byte	0xe
+ 1280 002f 40          		.1byte	0x3a
+ 1281 0030 06          		.1byte	0xb
+ 1282 0030 00          		.1byte	0x3b
+ 1283 0031 00          		.1byte	0xb
+ 1284 0031 08          		.1byte	0x27
+ 1285 0032 2E          		.1byte	0xc
+ 1286 0032 00          		.1byte	0x11
+ 1287 0033 3F          		.1byte	0x1
+ 1288 0033 0C          		.1byte	0x12
+ 1289 0034 03          		.1byte	0x1
+ 1290 0034 0E          		.1byte	0x40
+ 1291 0035 3A          		.1byte	0x6
+ 1292 0035 0B          		.1byte	0x0
+ 1293 0036 3B          		.1byte	0x0
+ 1294 0036 0B          		.1byte	0x9
+ 1295 0037 27          		.1byte	0x2e
+ 1296 0037 0C          		.1byte	0x1
+ 1297 0038 11          		.1byte	0x3f
+ 1298 0038 01          		.1byte	0xc
+ 1299 0039 12          		.1byte	0x3
+ 1300 0039 01          		.1byte	0xe
+ 1301 003a 40          		.1byte	0x3a
+ 1302 003a 06          		.1byte	0xb
+ 1303 003b 00          		.1byte	0x3b
+ 1304 003b 00          		.1byte	0xb
+ 1305 003c 09          		.1byte	0x27
+ 1306 003c 2E          		.1byte	0xc
+ 1307 003d 01          		.1byte	0x49
+ 1308 003d 3F          		.1byte	0x13
+ 1309 003e 0C          		.1byte	0x11
+ 1310 003e 03          		.1byte	0x1
+ 1311 003f 0E          		.1byte	0x12
+ 1312 003f 3A          		.1byte	0x1
+ 1313 0040 0B          		.1byte	0x40
+ 1314 0040 3B          		.1byte	0x6
+ 1315 0041 0B          		.1byte	0x1
+ 1316 0041 27          		.1byte	0x13
+ 1317 0042 0C          		.1byte	0x0
+ 1318 0042 49          		.1byte	0x0
+ 1319 0043 13          		.1byte	0xa
+ 1320 0043 11          		.1byte	0x5
+ 1321 0044 01          		.1byte	0x0
+ 1322 0044 12          		.1byte	0x3
+ 1323 0045 01          		.1byte	0xe
+ 1324 0045 40          		.1byte	0x3a
+ 1325 0046 06          		.1byte	0xb
+ 1326 0046 01          		.1byte	0x3b
+ 1327 0047 13          		.1byte	0xb
+ 1328 0047 00          		.1byte	0x49
+ 1329 0048 00          		.1byte	0x13
+ 1330 0048 0A          		.1byte	0x2
+ 1331 0049 05          		.1byte	0xa
+ 1332 0049 00          		.1byte	0x0
+ 1333 004a 03          		.1byte	0x0
+ 1334 004a 0E          		.1byte	0xb
+ 1335 004b 3A          		.1byte	0x5
+ 1336 004b 0B          		.1byte	0x0
+ 1337 004c 3B          		.1byte	0x3
+ 1338 004c 0B          		.1byte	0x8
+ 1339 004d 49          		.1byte	0x3a
+ 1340 004d 13          		.1byte	0xb
+ 1341 004e 02          		.1byte	0x3b
+ 1342 004e 0A          		.1byte	0xb
+ 1343 004f 00          		.1byte	0x49
+ 1344 004f 00          		.1byte	0x13
+ 1345 0050 0B          		.1byte	0x2
+ 1346 0050 05          		.1byte	0xa
+ 1347 0051 00          		.1byte	0x0
+ 1348 0051 03          		.1byte	0x0
+ 1349 0052 08          		.1byte	0xc
+ 1350 0052 3A          		.1byte	0x34
+ 1351 0053 0B          		.1byte	0x0
+ 1352 0053 3B          		.1byte	0x3
+ 1353 0054 0B          		.1byte	0xe
+ 1354 0054 49          		.1byte	0x3a
+ 1355 0055 13          		.1byte	0xb
+ 1356 0055 02          		.1byte	0x3b
+ 1357 0056 0A          		.1byte	0xb
+ 1358 0056 00          		.1byte	0x49
+ 1359 0057 00          		.1byte	0x13
+ 1360 0057 0C          		.1byte	0x2
+ 1361 0058 34          		.1byte	0xa
+ 1362 0058 00          		.1byte	0x0
+ 1363 0059 03          		.1byte	0x0
+ 1364 0059 0E          		.1byte	0xd
+ 1365 005a 3A          		.1byte	0xf
+ 1366 005a 0B          		.1byte	0x0
+ 1367 005b 3B          		.1byte	0xb
+ 1368 005b 0B          		.1byte	0xb
+ 1369 005c 49          		.1byte	0x49
+ 1370 005c 13          		.1byte	0x13
+ 1371 005d 02          		.1byte	0x0
+ 1372 005d 0A          		.1byte	0x0
+ 1373 005e 00          		.1byte	0xe
+ 1374 005e 00          		.1byte	0x34
+ 1375 005f 0D          		.1byte	0x0
+ 1376 005f 0F          		.1byte	0x3
+ 1377 0060 00          		.1byte	0xe
+ 1378 0060 0B          		.1byte	0x3a
+ 1379 0061 0B          		.1byte	0xb
+ 1380 0061 49          		.1byte	0x3b
+ 1381 0062 13          		.1byte	0xb
+ 1382 0062 00          		.1byte	0x49
+ 1383 0063 00          		.1byte	0x13
+ 1384 0063 0E          		.1byte	0x3f
+ 1385 0064 34          		.1byte	0xc
+ 1386 0064 00          		.1byte	0x2
+ 1387 0065 03          		.1byte	0xa
+ 1388 0065 0E          		.1byte	0x0
+ 1389 0066 3A          		.1byte	0x0
+ 1390 0066 0B          		.1byte	0x0
+ 1391 0067 3B          		.section	.debug_pubnames,"",@progbits
+ 1392 0067 0B          		.4byte	0xa2
+ 1393 0068 49          		.2byte	0x2
+ 1394 0068 13          		.4byte	.Ldebug_info0
+ 1395 0069 3F          		.4byte	0x4d9
+ 1396 0069 0C          		.4byte	0x34d
+ 1397 006a 02          		.ascii "I2CAcquire\000"
+ 1398 006a 0A          		.4byte	0x366
+ 1399 006b 00          		.ascii "I2CRelease\000"
+ 1400 006b 00          		.4byte	0x37b
+ 1401 006c 00          		.ascii "I2CcommsInit\000"
+ 1402                 		.4byte	0x390
+ 1403 0000 00 00 00 A2 		.ascii "I2CReadRegister\000"
+ 1404 0002 00 02       		.4byte	0x3ec
+ 1405 0003 00 00 00 00 		.ascii "I2CReadRegisters\000"
+ 1406 0005 00 00 04 D9 		.4byte	0x45e
+ 1407 0007 00 00 03 4D 		.ascii "I2CWriteRegister\000"
+ 1408 0009 49 32 43 41 		.4byte	0x4b4
+ 1408      63 71 75 69 
+ 1408      72 65 00 
+ 1409 000e 00 00 03 66 		.ascii "bus_I2C_status\000"
+ 1410 0010 49 32 43 52 		.4byte	0x4c6
+ 1410      65 6C 65 61 
+ 1410      73 65 00 
+ 1411 0016 00 00 03 7B 		.ascii "i2c_initialised\000"
+ 1412 0018 49 32 43 63 		.4byte	0x0
+ 1412      6F 6D 6D 73 
+ 1412      49 6E 69 74 
+ 1412      00 
+ 1413 001e 00 00 03 90 		.section	.debug_aranges,"",@progbits
+ 1414 0020 49 32 43 52 		.4byte	0x44
+ 1414      65 61 64 52 
+ 1414      65 67 69 73 
+ 1414      74 65 72 00 
+ 1415 0028 00 00 03 EC 		.2byte	0x2
+ 1416 002a 49 32 43 52 		.4byte	.Ldebug_info0
+ 1416      65 61 64 52 
+ 1416      65 67 69 73 
+ 1416      74 65 72 73 
+ 1416      00 
+ 1417 0033 00 00 04 5E 		.1byte	0x4
+ 1418 0035 49 32 43 57 		.1byte	0x0
+ 1418      72 69 74 65 
+ 1418      52 65 67 69 
+ 1418      73 74 65 72 
+ 1418      00 
+ 1419 003d 00 00 04 B4 		.2byte	0x0
+ 1420 003f 62 75 73 5F 		.2byte	0x0
+ 1420      49 32 43 5F 
+ 1420      73 74 61 74 
+ 1420      75 73 00 
+ 1421 0047 00 00 04 C6 		.4byte	.LFB2
+ 1422 0049 69 32 63 5F 		.4byte	.LFE2-.LFB2
+ 1422      69 6E 69 74 
+ 1422      69 61 6C 69 
+ 1422      73 65 64 00 
+ 1423 0051 00 00 00 00 		.4byte	.LFB3
+ 1424                 		.4byte	.LFE3-.LFB3
+ 1425 0000 00 00 00 44 		.4byte	.LFB4
+ 1426 0002 00 02       		.4byte	.LFE4-.LFB4
+ 1427 0003 00 00 00 00 		.4byte	.LFB5
+ 1428 0005 04          		.4byte	.LFE5-.LFB5
+ 1429 0005 00          		.4byte	.LFB6
+ 1430 0006 00 00       		.4byte	.LFE6-.LFB6
+ 1431 0007 00 00       		.4byte	.LFB7
+ 1432 0008 00 00 00 00 		.4byte	.LFE7-.LFB7
+ 1433 000a 00 00 00 00 		.4byte	0x0
+ 1434 000c 00 00 00 00 		.4byte	0x0
+ 1435 000e 00 00 00 00 		.section	.debug_ranges,"",@progbits
+ 1436 0010 00 00 00 00 	.Ldebug_ranges0:
+ 1437 0012 00 00 00 00 		.4byte	.Ltext0
+ 1438 0014 00 00 00 00 		.4byte	.Letext0
+ 1439 0016 00 00 00 00 		.4byte	.LFB2
+ 1440 0018 00 00 00 00 		.4byte	.LFE2
+ 1441 001a 00 00 00 00 		.4byte	.LFB3
+ 1442 001c 00 00 00 00 		.4byte	.LFE3
+ 1443 001e 00 00 00 00 		.4byte	.LFB4
+ 1444 0020 00 00 00 00 		.4byte	.LFE4
+ 1445 0022 00 00 00 00 		.4byte	.LFB5
+ 1446                 		.4byte	.LFE5
+ 1447                 		.4byte	.LFB6
+ 1448 0000 00 00 00 00 		.4byte	.LFE6
+ 1449 0002 00 00 00 00 		.4byte	.LFB7
+ 1450 0004 00 00 00 00 		.4byte	.LFE7
+ 1451 0006 00 00 00 00 		.4byte	0x0
+ 1452 0008 00 00 00 00 		.4byte	0x0
+ 1453 000a 00 00 00 00 		.section	.debug_str,"MS",@progbits,1
+ 1454 000c 00 00 00 00 	.LASF78:
+ 1455 000e 00 00 00 00 		.ascii "sm_status_reserved\000"
+ 1456 0010 00 00 00 00 	.LASF60:
+ 1457 0012 00 00 00 00 		.ascii "gatt_status_sign_failed\000"
+ 1458 0014 00 00 00 00 	.LASF67:
+ 1459 0016 00 00 00 00 		.ascii "gatt_status_invalid_cid\000"
+ 1460 0018 00 00 00 00 	.LASF85:
+ 1461 001a 00 00 00 00 		.ascii "sm_status_command_not_supported\000"
+ 1462 001c 00 00 00 00 	.LASF58:
+ 1463 001e 00 00 00 00 		.ascii "gatt_status_insufficient_resources\000"
+ 1464                 	.LASF61:
+ 1465                 		.ascii "gatt_status_busy\000"
+ 1466 0000 73 6D 5F 73 	.LASF128:
+ 1466      74 61 74 75 
+ 1466      73 5F 72 65 
+ 1466      73 65 72 76 
+ 1466      65 64 00 
+ 1467                 		.ascii "I2CAcquire\000"
+ 1468 0009 67 61 74 74 	.LASF22:
+ 1468      5F 73 74 61 
+ 1468      74 75 73 5F 
+ 1468      73 69 67 6E 
+ 1468      5F 66 61 69 
+ 1469                 		.ascii "i2c_status_fail_bus_busy\000"
+ 1470 0015 67 61 74 74 	.LASF109:
+ 1470      5F 73 74 61 
+ 1470      74 75 73 5F 
+ 1470      69 6E 76 61 
+ 1470      6C 69 64 5F 
+ 1471                 		.ascii "i2c_bus_status\000"
+ 1472 0021 73 6D 5F 73 	.LASF45:
+ 1472      74 61 74 75 
+ 1472      73 5F 63 6F 
+ 1472      6D 6D 61 6E 
+ 1472      64 5F 6E 6F 
+ 1473                 		.ascii "gatt_status_invalid_pdu\000"
+ 1474 0031 67 61 74 74 	.LASF90:
+ 1474      5F 73 74 61 
+ 1474      74 75 73 5F 
+ 1474      69 6E 73 75 
+ 1474      66 66 69 63 
+ 1475                 		.ascii "sm_status_timeout\000"
+ 1476 0043 67 61 74 74 	.LASF64:
+ 1476      5F 73 74 61 
+ 1476      74 75 73 5F 
+ 1476      62 75 73 79 
+ 1476      00 
+ 1477                 		.ascii "gatt_status_invalid_uuid\000"
+ 1478 004b 49 32 43 41 	.LASF35:
+ 1478      63 71 75 69 
+ 1478      72 65 00 
+ 1479                 		.ascii "skm_status_storage_full\000"
+ 1480 0051 69 32 63 5F 	.LASF13:
+ 1480      73 74 61 74 
+ 1480      75 73 5F 66 
+ 1480      61 69 6C 5F 
+ 1480      62 75 73 5F 
+ 1481                 		.ascii "nvm_status_not_initialised\000"
+ 1482 005d 69 32 63 5F 	.LASF10:
+ 1482      62 75 73 5F 
+ 1482      73 74 61 74 
+ 1482      75 73 00 
+ 1483                 		.ascii "nvm_status_empty\000"
+ 1484 0065 67 61 74 74 	.LASF102:
+ 1484      5F 73 74 61 
+ 1484      74 75 73 5F 
+ 1484      69 6E 76 61 
+ 1484      6C 69 64 5F 
+ 1485                 		.ascii "i2c_cmd_wait_ack\000"
+ 1486 0071 73 6D 5F 73 	.LASF81:
+ 1486      74 61 74 75 
+ 1486      73 5F 74 69 
+ 1486      6D 65 6F 75 
+ 1486      74 00 
+ 1487                 		.ascii "sm_status_authentication_requirements\000"
+ 1488 007a 67 61 74 74 	.LASF52:
+ 1488      5F 73 74 61 
+ 1488      74 75 73 5F 
+ 1488      69 6E 76 61 
+ 1488      6C 69 64 5F 
+ 1489                 		.ascii "gatt_status_not_long\000"
+ 1490 0086 73 6B 6D 5F 	.LASF114:
+ 1490      73 74 61 74 
+ 1490      75 73 5F 73 
+ 1490      74 6F 72 61 
+ 1490      67 65 5F 66 
+ 1491                 		.ascii "I2CReadRegister\000"
+ 1492 0092 6E 76 6D 5F 	.LASF55:
+ 1492      73 74 61 74 
+ 1492      75 73 5F 6E 
+ 1492      6F 74 5F 69 
+ 1492      6E 69 74 69 
+ 1493                 		.ascii "gatt_status_unlikely_error\000"
+ 1494 00a0 6E 76 6D 5F 	.LASF21:
+ 1494      73 74 61 74 
+ 1494      75 73 5F 65 
+ 1494      6D 70 74 79 
+ 1494      00 
+ 1495                 		.ascii "i2c_status_fail_nacked\000"
+ 1496 00a8 69 32 63 5F 	.LASF65:
+ 1496      63 6D 64 5F 
+ 1496      77 61 69 74 
+ 1496      5F 61 63 6B 
+ 1496      00 
+ 1497                 		.ascii "gatt_status_success_more\000"
+ 1498 00b1 73 6D 5F 73 	.LASF100:
+ 1498      74 61 74 75 
+ 1498      73 5F 61 75 
+ 1498      74 68 65 6E 
+ 1498      74 69 63 61 
+ 1499                 		.ascii "i2c_cmd_send_restart\000"
+ 1500 00c4 67 61 74 74 	.LASF31:
+ 1500      5F 73 74 61 
+ 1500      74 75 73 5F 
+ 1500      6E 6F 74 5F 
+ 1500      6C 6F 6E 67 
+ 1501                 		.ascii "spi_status_fail\000"
+ 1502 00ce 49 32 43 52 	.LASF3:
+ 1502      65 61 64 52 
+ 1502      65 67 69 73 
+ 1502      74 65 72 00 
+ 1503                 		.ascii "signed char\000"
+ 1504 00d6 67 61 74 74 	.LASF84:
+ 1504      5F 73 74 61 
+ 1504      74 75 73 5F 
+ 1504      75 6E 6C 69 
+ 1504      6B 65 6C 79 
+ 1505                 		.ascii "sm_status_encryption_key_size\000"
+ 1506 00e4 69 32 63 5F 	.LASF19:
+ 1506      73 74 61 74 
+ 1506      75 73 5F 66 
+ 1506      61 69 6C 5F 
+ 1506      6E 61 63 6B 
+ 1507                 		.ascii "i2c_status_controller_disabled\000"
+ 1508 00ef 67 61 74 74 	.LASF42:
+ 1508      5F 73 74 61 
+ 1508      74 75 73 5F 
+ 1508      73 75 63 63 
+ 1508      65 73 73 5F 
+ 1509                 		.ascii "gatt_status_invalid_handle\000"
+ 1510 00fc 69 32 63 5F 	.LASF5:
+ 1510      63 6D 64 5F 
+ 1510      73 65 6E 64 
+ 1510      5F 72 65 73 
+ 1510      74 61 72 74 
+ 1511                 		.ascii "long int\000"
+ 1512 0106 73 70 69 5F 	.LASF57:
+ 1512      73 74 61 74 
+ 1512      75 73 5F 66 
+ 1512      61 69 6C 00 
+ 1513                 		.ascii "gatt_status_unsupported_group_type\000"
+ 1514 010e 73 69 67 6E 	.LASF111:
+ 1514      65 64 20 63 
+ 1514      68 61 72 00 
+ 1515                 		.ascii "I2CcommsInit\000"
+ 1516 0114 73 6D 5F 73 	.LASF6:
+ 1516      74 61 74 75 
+ 1516      73 5F 65 6E 
+ 1516      63 72 79 70 
+ 1516      74 69 6F 6E 
+ 1517                 		.ascii "uint8\000"
+ 1518 0123 69 32 63 5F 	.LASF98:
+ 1518      73 74 61 74 
+ 1518      75 73 5F 63 
+ 1518      6F 6E 74 72 
+ 1518      6F 6C 6C 65 
+ 1519                 		.ascii "pio_i2c_pull_mode_strong_sticky\000"
+ 1520 0133 67 61 74 74 	.LASF75:
+ 1520      5F 73 74 61 
+ 1520      74 75 73 5F 
+ 1520      69 6E 76 61 
+ 1520      6C 69 64 5F 
+ 1521                 		.ascii "gatt_status_app_mask\000"
+ 1522 0140 6C 6F 6E 67 	.LASF74:
+ 1522      20 69 6E 74 
+ 1522      00 
+ 1523                 		.ascii "gatt_status_irq_proceed\000"
+ 1524 0145 67 61 74 74 	.LASF76:
+ 1524      5F 73 74 61 
+ 1524      74 75 73 5F 
+ 1524      75 6E 73 75 
+ 1524      70 70 6F 72 
+ 1525                 		.ascii "gatt_status_app_first_code\000"
+ 1526 0156 49 32 43 63 	.LASF59:
+ 1526      6F 6D 6D 73 
+ 1526      49 6E 69 74 
+ 1526      00 
+ 1527                 		.ascii "gatt_status_device_not_found\000"
+ 1528 015d 75 69 6E 74 	.LASF15:
+ 1528      38 00 
+ 1529                 		.ascii "nvm_status_invalid_buffer\000"
+ 1530 0160 70 69 6F 5F 	.LASF14:
+ 1530      69 32 63 5F 
+ 1530      70 75 6C 6C 
+ 1530      5F 6D 6F 64 
+ 1530      65 5F 73 74 
+ 1531                 		.ascii "nvm_status_invalid_offset\000"
+ 1532 0170 67 61 74 74 	.LASF49:
+ 1532      5F 73 74 61 
+ 1532      74 75 73 5F 
+ 1532      61 70 70 5F 
+ 1532      6D 61 73 6B 
+ 1533                 		.ascii "gatt_status_insufficient_authorization\000"
+ 1534 017a 67 61 74 74 	.LASF54:
+ 1534      5F 73 74 61 
+ 1534      74 75 73 5F 
+ 1534      69 72 71 5F 
+ 1534      70 72 6F 63 
+ 1535                 		.ascii "gatt_status_invalid_length\000"
+ 1536 0186 67 61 74 74 	.LASF105:
+ 1536      5F 73 74 61 
+ 1536      74 75 73 5F 
+ 1536      61 70 70 5F 
+ 1536      66 69 72 73 
+ 1537                 		.ascii "i2c_cmd_tx_data\000"
+ 1538 0194 67 61 74 74 	.LASF80:
+ 1538      5F 73 74 61 
+ 1538      74 75 73 5F 
+ 1538      64 65 76 69 
+ 1538      63 65 5F 6E 
+ 1539                 		.ascii "sm_status_oob_not_available\000"
+ 1540 01a2 6E 76 6D 5F 	.LASF112:
+ 1540      73 74 61 74 
+ 1540      75 73 5F 69 
+ 1540      6E 76 61 6C 
+ 1540      69 64 5F 62 
+ 1541                 		.ascii "base_address\000"
+ 1542 01af 6E 76 6D 5F 	.LASF8:
+ 1542      73 74 61 74 
+ 1542      75 73 5F 69 
+ 1542      6E 76 61 6C 
+ 1542      69 64 5F 6F 
+ 1543                 		.ascii "unsigned int\000"
+ 1544 01bc 67 61 74 74 	.LASF68:
+ 1544      5F 73 74 61 
+ 1544      74 75 73 5F 
+ 1544      69 6E 73 75 
+ 1544      66 66 69 63 
+ 1545                 		.ascii "gatt_status_invalid_db\000"
+ 1546 01d0 67 61 74 74 	.LASF53:
+ 1546      5F 73 74 61 
+ 1546      74 75 73 5F 
+ 1546      69 6E 76 61 
+ 1546      6C 69 64 5F 
+ 1547                 		.ascii "gatt_status_insufficient_encr_key_size\000"
+ 1548 01dd 69 32 63 5F 	.LASF2:
+ 1548      63 6D 64 5F 
+ 1548      74 78 5F 64 
+ 1548      61 74 61 00 
+ 1549                 		.ascii "long unsigned int\000"
+ 1550 01e5 73 6D 5F 73 	.LASF25:
+ 1550      74 61 74 75 
+ 1550      73 5F 6F 6F 
+ 1550      62 5F 6E 6F 
+ 1550      74 5F 61 76 
+ 1551                 		.ascii "i2c_status_fail_inactive\000"
+ 1552 01f3 62 61 73 65 	.LASF46:
+ 1552      5F 61 64 64 
+ 1552      72 65 73 73 
+ 1552      00 
+ 1553                 		.ascii "gatt_status_insufficient_authentication\000"
+ 1554 01fa 75 6E 73 69 	.LASF1:
+ 1554      67 6E 65 64 
+ 1554      20 69 6E 74 
+ 1554      00 
+ 1555                 		.ascii "short unsigned int\000"
+ 1556 0200 67 61 74 74 	.LASF82:
+ 1556      5F 73 74 61 
+ 1556      74 75 73 5F 
+ 1556      69 6E 76 61 
+ 1556      6C 69 64 5F 
+ 1557                 		.ascii "sm_status_confirm_value_failed\000"
+ 1558 020c 67 61 74 74 	.LASF51:
+ 1558      5F 73 74 61 
+ 1558      74 75 73 5F 
+ 1558      69 6E 73 75 
+ 1558      66 66 69 63 
+ 1559                 		.ascii "gatt_status_attr_not_found\000"
+ 1560 021f 6C 6F 6E 67 	.LASF121:
+ 1560      20 75 6E 73 
+ 1560      69 67 6E 65 
+ 1560      64 20 69 6E 
+ 1560      74 00 
+ 1561                 		.ascii "I2CWriteRegister\000"
+ 1562 0228 69 32 63 5F 	.LASF17:
+ 1562      73 74 61 74 
+ 1562      75 73 5F 66 
+ 1562      61 69 6C 5F 
+ 1562      69 6E 61 63 
+ 1563                 		.ascii "i2c_status_firmware_busy\000"
+ 1564 0235 67 61 74 74 	.LASF122:
+ 1564      5F 73 74 61 
+ 1564      74 75 73 5F 
+ 1564      69 6E 73 75 
+ 1564      66 66 69 63 
+ 1565                 		.ascii "register_value\000"
+ 1566 0249 73 68 6F 72 	.LASF7:
+ 1566      74 20 75 6E 
+ 1566      73 69 67 6E 
+ 1566      65 64 20 69 
+ 1566      6E 74 00 
+ 1567                 		.ascii "bool\000"
+ 1568 0252 73 6D 5F 73 	.LASF87:
+ 1568      74 61 74 75 
+ 1568      73 5F 63 6F 
+ 1568      6E 66 69 72 
+ 1568      6D 5F 76 61 
+ 1569                 		.ascii "sm_status_repeated_attempts\000"
+ 1570 0262 67 61 74 74 	.LASF16:
+ 1570      5F 73 74 61 
+ 1570      74 75 73 5F 
+ 1570      61 74 74 72 
+ 1570      5F 6E 6F 74 
+ 1571                 		.ascii "i2c_status_waiting\000"
+ 1572 026f 49 32 43 57 	.LASF12:
+ 1572      72 69 74 65 
+ 1572      52 65 67 69 
+ 1572      73 74 65 72 
+ 1572      00 
+ 1573                 		.ascii "nvm_status_invalid_configuration\000"
+ 1574 0278 69 32 63 5F 	.LASF83:
+ 1574      73 74 61 74 
+ 1574      75 73 5F 66 
+ 1574      69 72 6D 77 
+ 1574      61 72 65 5F 
+ 1575                 		.ascii "sm_status_pairing_not_supported\000"
+ 1576 0284 72 65 67 69 	.LASF11:
+ 1576      73 74 65 72 
+ 1576      5F 76 61 6C 
+ 1576      75 65 00 
+ 1577                 		.ascii "nvm_status_needs_erase\000"
+ 1578 028c 62 6F 6F 6C 	.LASF126:
+ 1578      00 
+ 1579                 		.ascii "i2c_comms.c\000"
+ 1580 028e 73 6D 5F 73 	.LASF28:
+ 1580      74 61 74 75 
+ 1580      73 5F 72 65 
+ 1580      70 65 61 74 
+ 1580      65 64 5F 61 
+ 1581                 		.ascii "spi_status_waiting\000"
+ 1582 029c 69 32 63 5F 	.LASF48:
+ 1582      73 74 61 74 
+ 1582      75 73 5F 77 
+ 1582      61 69 74 69 
+ 1582      6E 67 00 
+ 1583                 		.ascii "gatt_status_invalid_offset\000"
+ 1584 02a6 6E 76 6D 5F 	.LASF96:
+ 1584      73 74 61 74 
+ 1584      75 73 5F 69 
+ 1584      6E 76 61 6C 
+ 1584      69 64 5F 63 
+ 1585                 		.ascii "pio_i2c_pull_mode_strong_pull_up\000"
+ 1586 02b6 73 6D 5F 73 	.LASF118:
+ 1586      74 61 74 75 
+ 1586      73 5F 70 61 
+ 1586      69 72 69 6E 
+ 1586      67 5F 6E 6F 
+ 1587                 		.ascii "p_buffer\000"
+ 1588 02c6 6E 76 6D 5F 	.LASF36:
+ 1588      73 74 61 74 
+ 1588      75 73 5F 6E 
+ 1588      65 65 64 73 
+ 1588      5F 65 72 61 
+ 1589                 		.ascii "skm_status_too_many_keys\000"
+ 1590 02d2 69 32 63 5F 	.LASF69:
+ 1590      63 6F 6D 6D 
+ 1590      73 2E 63 00 
+ 1591                 		.ascii "gatt_status_db_full\000"
+ 1592 02d8 73 70 69 5F 	.LASF119:
+ 1592      73 74 61 74 
+ 1592      75 73 5F 77 
+ 1592      61 69 74 69 
+ 1592      6E 67 00 
+ 1593                 		.ascii "success\000"
+ 1594 02e1 67 61 74 74 	.LASF101:
+ 1594      5F 73 74 61 
+ 1594      74 75 73 5F 
+ 1594      69 6E 76 61 
+ 1594      6C 69 64 5F 
+ 1595                 		.ascii "i2c_cmd_send_stop\000"
+ 1596 02ef 70 69 6F 5F 	.LASF86:
+ 1596      69 32 63 5F 
+ 1596      70 75 6C 6C 
+ 1596      5F 6D 6F 64 
+ 1596      65 5F 73 74 
+ 1597                 		.ascii "sm_status_unspecified_reason\000"
+ 1598 02ff 70 5F 62 75 	.LASF26:
+ 1598      66 66 65 72 
+ 1598      00 
+ 1599                 		.ascii "i2c_status_fail_unknown\000"
+ 1600 0304 73 6B 6D 5F 	.LASF91:
+ 1600      73 74 61 74 
+ 1600      75 73 5F 74 
+ 1600      6F 6F 5F 6D 
+ 1600      61 6E 79 5F 
+ 1601                 		.ascii "sys_status_invalid\000"
+ 1602 0310 67 61 74 74 	.LASF34:
+ 1602      5F 73 74 61 
+ 1602      74 75 73 5F 
+ 1602      64 62 5F 66 
+ 1602      75 6C 6C 00 
+ 1603                 		.ascii "skm_status_key_not_found\000"
+ 1604 031a 73 75 63 63 	.LASF116:
+ 1604      65 73 73 00 
+ 1605                 		.ascii "start_reg\000"
+ 1606 031e 69 32 63 5F 	.LASF127:
+ 1606      63 6D 64 5F 
+ 1606      73 65 6E 64 
+ 1606      5F 73 74 6F 
+ 1606      70 00 
+ 1607                 		.ascii "C:\\CSR_uEnergy_SDK-2.4.5.13\\apps\\gatt_client_gw\000"
+ 1608 0327 73 6D 5F 73 	.LASF92:
+ 1608      74 61 74 75 
+ 1608      73 5F 75 6E 
+ 1608      73 70 65 63 
+ 1608      69 66 69 65 
+ 1609                 		.ascii "pio_i2c_pull_mode_no_pulls\000"
+ 1610 0336 69 32 63 5F 	.LASF123:
+ 1610      73 74 61 74 
+ 1610      75 73 5F 66 
+ 1610      61 69 6C 5F 
+ 1610      75 6E 6B 6E 
+ 1611                 		.ascii "bus_I2C_status\000"
+ 1612 0342 73 79 73 5F 	.LASF38:
+ 1612      73 74 61 74 
+ 1612      75 73 5F 69 
+ 1612      6E 76 61 6C 
+ 1612      69 64 00 
+ 1613                 		.ascii "l2cap_status_conn_disallowed\000"
+ 1614 034b 73 6B 6D 5F 	.LASF47:
+ 1614      73 74 61 74 
+ 1614      75 73 5F 6B 
+ 1614      65 79 5F 6E 
+ 1614      6F 74 5F 66 
+ 1615                 		.ascii "gatt_status_request_not_supported\000"
+ 1616 0358 73 74 61 72 	.LASF124:
+ 1616      74 5F 72 65 
+ 1616      67 00 
+ 1617                 		.ascii "i2c_initialised\000"
+ 1618 035d 43 3A 5C 43 	.LASF99:
+ 1618      53 52 5F 75 
+ 1618      45 6E 65 72 
+ 1618      67 79 5F 53 
+ 1618      44 4B 2D 32 
+ 1619                 		.ascii "i2c_cmd_send_start\000"
+ 1620 0375 70 69 6F 5F 	.LASF0:
+ 1620      69 32 63 5F 
+ 1620      70 75 6C 6C 
+ 1620      5F 6D 6F 64 
+ 1620      65 5F 6E 6F 
+ 1621                 		.ascii "unsigned char\000"
+ 1622 0382 62 75 73 5F 	.LASF4:
+ 1622      49 32 43 5F 
+ 1622      73 74 61 74 
+ 1622      75 73 00 
+ 1623                 		.ascii "short int\000"
+ 1624 038a 6C 32 63 61 	.LASF95:
+ 1624      70 5F 73 74 
+ 1624      61 74 75 73 
+ 1624      5F 63 6F 6E 
+ 1624      6E 5F 64 69 
+ 1625                 		.ascii "pio_i2c_pull_mode_strong_pull_down\000"
+ 1626 0398 67 61 74 74 	.LASF63:
+ 1626      5F 73 74 61 
+ 1626      74 75 73 5F 
+ 1626      72 65 71 75 
+ 1626      65 73 74 5F 
+ 1627                 		.ascii "gatt_status_invalid_mtu\000"
+ 1628 03a9 69 32 63 5F 	.LASF107:
+ 1628      69 6E 69 74 
+ 1628      69 61 6C 69 
+ 1628      73 65 64 00 
+ 1629                 		.ascii "i2c_bus_released\000"
+ 1630 03b1 69 32 63 5F 	.LASF88:
+ 1630      63 6D 64 5F 
+ 1630      73 65 6E 64 
+ 1630      5F 73 74 61 
+ 1630      72 74 00 
+ 1631                 		.ascii "sm_status_invalid_parameters\000"
+ 1632 03bb 75 6E 73 69 	.LASF108:
+ 1632      67 6E 65 64 
+ 1632      20 63 68 61 
+ 1632      72 00 
+ 1633                 		.ascii "i2c_bus_acquired\000"
+ 1634 03c2 73 68 6F 72 	.LASF62:
+ 1634      74 20 69 6E 
+ 1634      74 00 
+ 1635                 		.ascii "gatt_status_timeout\000"
+ 1636 03c7 70 69 6F 5F 	.LASF79:
+ 1636      69 32 63 5F 
+ 1636      70 75 6C 6C 
+ 1636      5F 6D 6F 64 
+ 1636      65 5F 73 74 
+ 1637                 		.ascii "sm_status_passkey_entry_failed\000"
+ 1638 03d8 67 61 74 74 	.LASF43:
+ 1638      5F 73 74 61 
+ 1638      74 75 73 5F 
+ 1638      69 6E 76 61 
+ 1638      6C 69 64 5F 
+ 1639                 		.ascii "gatt_status_read_not_permitted\000"
+ 1640 03e4 69 32 63 5F 	.LASF66:
+ 1640      62 75 73 5F 
+ 1640      72 65 6C 65 
+ 1640      61 73 65 64 
+ 1640      00 
+ 1641                 		.ascii "gatt_status_success_sent\000"
+ 1642 03ed 73 6D 5F 73 	.LASF56:
+ 1642      74 61 74 75 
+ 1642      73 5F 69 6E 
+ 1642      76 61 6C 69 
+ 1642      64 5F 70 61 
+ 1643                 		.ascii "gatt_status_insufficient_encryption\000"
+ 1644 03fb 69 32 63 5F 	.LASF29:
+ 1644      62 75 73 5F 
+ 1644      61 63 71 75 
+ 1644      69 72 65 64 
+ 1644      00 
+ 1645                 		.ascii "spi_status_hardware_busy\000"
+ 1646 0404 67 61 74 74 	.LASF106:
+ 1646      5F 73 74 61 
+ 1646      74 75 73 5F 
+ 1646      74 69 6D 65 
+ 1646      6F 75 74 00 
+ 1647                 		.ascii "i2c_cmd_rx_data\000"
+ 1648 040e 73 6D 5F 73 	.LASF32:
+ 1648      74 61 74 75 
+ 1648      73 5F 70 61 
+ 1648      73 73 6B 65 
+ 1648      79 5F 65 6E 
+ 1649                 		.ascii "spi_status_fail_timeout\000"
+ 1650 041d 67 61 74 74 	.LASF77:
+ 1650      5F 73 74 61 
+ 1650      74 75 73 5F 
+ 1650      72 65 61 64 
+ 1650      5F 6E 6F 74 
+ 1651                 		.ascii "gatt_status_app_last_code\000"
+ 1652 042d 67 61 74 74 	.LASF44:
+ 1652      5F 73 74 61 
+ 1652      74 75 73 5F 
+ 1652      73 75 63 63 
+ 1652      65 73 73 5F 
+ 1653                 		.ascii "gatt_status_write_not_permitted\000"
+ 1654 0439 67 61 74 74 	.LASF50:
+ 1654      5F 73 74 61 
+ 1654      74 75 73 5F 
+ 1654      69 6E 73 75 
+ 1654      66 66 69 63 
+ 1655                 		.ascii "gatt_status_prepare_queue_full\000"
+ 1656 044b 73 70 69 5F 	.LASF110:
+ 1656      73 74 61 74 
+ 1656      75 73 5F 68 
+ 1656      61 72 64 77 
+ 1656      61 72 65 5F 
+ 1657                 		.ascii "I2CRelease\000"
+ 1658 0458 69 32 63 5F 	.LASF70:
+ 1658      63 6D 64 5F 
+ 1658      72 78 5F 64 
+ 1658      61 74 61 00 
+ 1659                 		.ascii "gatt_status_invalid_permissions\000"
+ 1660 0460 73 70 69 5F 	.LASF93:
+ 1660      73 74 61 74 
+ 1660      75 73 5F 66 
+ 1660      61 69 6C 5F 
+ 1660      74 69 6D 65 
+ 1661                 		.ascii "pio_i2c_pull_mode_weak_pull_down\000"
+ 1662 046c 67 61 74 74 	.LASF24:
+ 1662      5F 73 74 61 
+ 1662      74 75 73 5F 
+ 1662      61 70 70 5F 
+ 1662      6C 61 73 74 
+ 1663                 		.ascii "i2c_status_fail_timeout\000"
+ 1664 0479 67 61 74 74 	.LASF117:
+ 1664      5F 73 74 61 
+ 1664      74 75 73 5F 
+ 1664      77 72 69 74 
+ 1664      65 5F 6E 6F 
+ 1665                 		.ascii "num_bytes\000"
+ 1666 0489 67 61 74 74 	.LASF72:
+ 1666      5F 73 74 61 
+ 1666      74 75 73 5F 
+ 1666      70 72 65 70 
+ 1666      61 72 65 5F 
+ 1667                 		.ascii "gatt_status_invalid_param_value\000"
+ 1668 0498 49 32 43 52 	.LASF97:
+ 1668      65 6C 65 61 
+ 1668      73 65 00 
+ 1669                 		.ascii "pio_i2c_pull_mode_weak_sticky\000"
+ 1670 049e 67 61 74 74 	.LASF37:
+ 1670      5F 73 74 61 
+ 1670      74 75 73 5F 
+ 1670      69 6E 76 61 
+ 1670      6C 69 64 5F 
+ 1671                 		.ascii "l2cap_status_invalid_conn_state\000"
+ 1672 04ae 70 69 6F 5F 	.LASF94:
+ 1672      69 32 63 5F 
+ 1672      70 75 6C 6C 
+ 1672      5F 6D 6F 64 
+ 1672      65 5F 77 65 
+ 1673                 		.ascii "pio_i2c_pull_mode_weak_pull_up\000"
+ 1674 04be 69 32 63 5F 	.LASF18:
+ 1674      73 74 61 74 
+ 1674      75 73 5F 66 
+ 1674      61 69 6C 5F 
+ 1674      74 69 6D 65 
+ 1675                 		.ascii "i2c_status_hardware_busy\000"
+ 1676 04ca 6E 75 6D 5F 	.LASF71:
+ 1676      62 79 74 65 
+ 1676      73 00 
+ 1677                 		.ascii "gatt_status_invalid_operation\000"
+ 1678 04cf 67 61 74 74 	.LASF41:
+ 1678      5F 73 74 61 
+ 1678      74 75 73 5F 
+ 1678      69 6E 76 61 
+ 1678      6C 69 64 5F 
+ 1679                 		.ascii "ls_status_limited_advertising_timeout\000"
+ 1680 04df 70 69 6F 5F 	.LASF125:
+ 1680      69 32 63 5F 
+ 1680      70 75 6C 6C 
+ 1680      5F 6D 6F 64 
+ 1680      65 5F 77 65 
+ 1681                 		.ascii "GNU C 4.3.4 CSR version 24 for xap [1865517]\000"
+ 1682 04ee 6C 32 63 61 	.LASF23:
+ 1682      70 5F 73 74 
+ 1682      61 74 75 73 
+ 1682      5F 69 6E 76 
+ 1682      61 6C 69 64 
+ 1683                 		.ascii "i2c_status_fail_arb_lost\000"
+ 1684 04fe 70 69 6F 5F 	.LASF113:
+ 1684      69 32 63 5F 
+ 1684      70 75 6C 6C 
+ 1684      5F 6D 6F 64 
+ 1684      65 5F 77 65 
+ 1685                 		.ascii "p_register_value\000"
+ 1686 050e 69 32 63 5F 	.LASF27:
+ 1686      73 74 61 74 
+ 1686      75 73 5F 68 
+ 1686      61 72 64 77 
+ 1686      61 72 65 5F 
+ 1687                 		.ascii "i2c_status_fail_write_poll_timeout\000"
+ 1688 051a 67 61 74 74 	.LASF39:
+ 1688      5F 73 74 61 
+ 1688      74 75 73 5F 
+ 1688      69 6E 76 61 
+ 1688      6C 69 64 5F 
+ 1689                 		.ascii "l2cap_status_conn_not_ongoing\000"
+ 1690 0529 6C 73 5F 73 	.LASF40:
+ 1690      74 61 74 75 
+ 1690      73 5F 6C 69 
+ 1690      6D 69 74 65 
+ 1690      64 5F 61 64 
+ 1691                 		.ascii "l2cap_status_buffer_full\000"
+ 1692 053c 47 4E 55 20 	.LASF73:
+ 1692      43 20 34 2E 
+ 1692      33 2E 34 20 
+ 1692      43 53 52 20 
+ 1692      76 65 72 73 
+ 1693                 		.ascii "gatt_status_data_validation_failed\000"
+ 1694 0553 69 32 63 5F 	.LASF9:
+ 1694      73 74 61 74 
+ 1694      75 73 5F 66 
+ 1694      61 69 6C 5F 
+ 1694      61 72 62 5F 
+ 1695                 		.ascii "sys_status_success\000"
+ 1696 055f 70 5F 72 65 	.LASF89:
+ 1696      67 69 73 74 
+ 1696      65 72 5F 76 
+ 1696      61 6C 75 65 
+ 1696      00 
+ 1697                 		.ascii "sm_status_last_standardised\000"
+ 1698 0568 69 32 63 5F 	.LASF30:
+ 1698      73 74 61 74 
+ 1698      75 73 5F 66 
+ 1698      61 69 6C 5F 
+ 1698      77 72 69 74 
+ 1699                 		.ascii "spi_status_erase_pending\000"
+ 1700 0579 6C 32 63 61 	.LASF104:
+ 1700      70 5F 73 74 
+ 1700      61 74 75 73 
+ 1700      5F 63 6F 6E 
+ 1700      6E 5F 6E 6F 
+ 1701                 		.ascii "i2c_cmd_send_nack\000"
+ 1702 0588 6C 32 63 61 	.LASF103:
+ 1702      70 5F 73 74 
+ 1702      61 74 75 73 
+ 1702      5F 62 75 66 
+ 1702      66 65 72 5F 
+ 1703                 		.ascii "i2c_cmd_send_ack\000"
+ 1704 0595 67 61 74 74 	.LASF115:
+ 1704      5F 73 74 61 
+ 1704      74 75 73 5F 
+ 1704      64 61 74 61 
+ 1704      5F 76 61 6C 
+ 1705                 		.ascii "I2CReadRegisters\000"
+ 1706 05a6 73 79 73 5F 	.LASF120:
+ 1706      73 74 61 74 
+ 1706      75 73 5F 73 
+ 1706      75 63 63 65 
+ 1706      73 73 00 
+ 1707                 		.ascii "p_write_pos\000"
+ 1708 05b0 73 6D 5F 73 	.LASF20:
+ 1708      74 61 74 75 
+ 1708      73 5F 6C 61 
+ 1708      73 74 5F 73 
+ 1708      74 61 6E 64 
+ 1709                 		.ascii "i2c_status_fail\000"
+ 1710 05be 73 70 69 5F 	.LASF33:
+ 1710      73 74 61 74 
+ 1710      75 73 5F 65 
+ 1710      72 61 73 65 
+ 1710      5F 70 65 6E 
+ 1711                 		.ascii "spi_status_page_overflow\000"
+ 1712 05ca 69 32 63 5F 		.ident	"GCC: (GNU) 4.3.4 CSR version 24 for xap [1865517]"
+ 1712      63 6D 64 5F 
+ 1712      73 65 6E 64 
+ 1712      5F 6E 61 63 
+ 1712      6B 00 
+ 1713                 	...

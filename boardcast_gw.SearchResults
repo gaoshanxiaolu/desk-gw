@@ -1,0 +1,41 @@
+---- UartWrite Matches (10 in 3 files) ----
+Gatt_access.c:734
+				UartWrite(data,size*2);
+				*/
+				return;
+Gatt_access.c:839
+			UartWrite(objdata,size);
+			#endif
+
+Gatt_client.c:350
+	UartWrite(ack,18);
+	#endif
+	TimeDelayUSec(5 * MILLISECOND);
+Uart.h (c:\csr_uenergy_sdk-2.4.5.13\...\csr101x_a05):98
+ * the \ref UartWrite or \ref UartWriteBlocking functions, and the type of data
+ * passed back from the UART to application in the UartRead() callback function.
+ *
+Uart.h (c:\csr_uenergy_sdk-2.4.5.13\...\csr101x_a05):277
+ *  data passed to \ref UartWrite.
+ *
+ *  \param length Amount of data to get (in bytes or words depending on UART data mode).
+Uart.h (c:\csr_uenergy_sdk-2.4.5.13\...\csr101x_a05):287
+ *  UartWrite
+ */
+/*! \brief Write a number of data bytes/words to the UART.
+Uart.h (c:\csr_uenergy_sdk-2.4.5.13\...\csr101x_a05):310
+ *  application must not use a while() loop to "poll" the UartWrite() function
+ *  as doing so will not allow the UART to clean up after existing bytes have
+ *  been transmitted).
+Uart.h (c:\csr_uenergy_sdk-2.4.5.13\...\csr101x_a05):320
+ *  data passed to \ref UartWrite.
+ *
+ *  \param data Pointer to the data buffer
+Uart.h (c:\csr_uenergy_sdk-2.4.5.13\...\csr101x_a05):328
+extern bool UartWrite(const void *data, uint16 length);
+
+
+Uart.h (c:\csr_uenergy_sdk-2.4.5.13\...\csr101x_a05):337
+ * This function behaves very much like \ref UartWrite, with the exception
+ * that it will not return until all the data has been copied to the UART
+ * transmit buffer. Therefore there is no return value (it will always
